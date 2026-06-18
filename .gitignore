@@ -1,0 +1,55 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Pipeline outputs (regenerated each run — no need to commit)
+outputs/
+
+# DuckDB database files (binary, regenerated)
+*.duckdb
+*.duckdb.wal
+
+# Environment variables (never commit secrets)
+.env
+.env.*
+
+# IDE config
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Test coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Pipeline log (regenerated each run)
+pipeline.log
+
+# Spark working directories
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Temporary test files
+test_phase*.py
+
+# Claude Code config (local tooling, not project code)
+.claude/

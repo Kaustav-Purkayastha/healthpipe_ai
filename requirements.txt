@@ -1,0 +1,20 @@
+# Core data processing
+pandas>=2.1.0
+numpy>=1.26.0
+
+# HTTP API calls
+requests>=2.31.0
+
+# Analytics database (serverless, file-based)
+duckdb>=0.10.0
+
+# AI agent orchestration (Phase 4)
+# Custom Crew framework built in agents/crew.py
+# (CrewAI requires Python <3.14; we use a lightweight alternative)
+
+# Local AI model via Ollama REST API (Phase 4)
+# No Python package needed — we call Ollama's HTTP API directly via requests
+
+# Testing framework (Phase 5)
+pytest>=8.0.0
+pytest-cov>=5.0.0
