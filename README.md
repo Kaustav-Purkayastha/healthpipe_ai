@@ -1,5 +1,7 @@
 # HealthPipe AI
 
+> Built as part of **Deloitte's Accelerate with AI — In-person Engineering Lab Session**.
+
 **A multi-agent data pipeline that ingests healthcare data from public APIs and local files, runs it through four specialized AI agents, and produces clean, documented, analytics-ready output — all from a single CLI command.**
 
 ---
