@@ -1,0 +1,127 @@
+/* HealthPipe AI Design System — shared across all pages */
+
+:root {
+  /* Brand colors */
+  --hp-primary: #059669;
+  --hp-primary-dark: #064E3B;
+  --hp-primary-soft: #ECFDF5;
+  --hp-primary-100: #D1FAE5;
+
+  --hp-secondary: #0284C7;
+  --hp-secondary-dark: #0C4A6E;
+  --hp-secondary-100: #E0F2FE;
+
+  /* Semantic */
+  --hp-success: #10B981;
+  --hp-warning: #F59E0B;
+  --hp-danger: #EF4444;
+
+  /* Base */
+  --hp-bg: #F8FAFC;
+  --hp-surface: #FFFFFF;
+  --hp-border: #E2E8F0;
+
+  /* Text */
+  --hp-text-primary: #0F172A;
+  --hp-text-secondary: #64748B;
+  --hp-text-tertiary: #94A3B8;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* Typography — matches the approved State Health Mart wireframe (Inter throughout) */
+  --font-family-display: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-family-body: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  /* Border radius */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 12px 20px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family-body);
+  background: var(--hp-bg);
+  color: var(--hp-text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+h1 { font-size: 32px; }
+h2 { font-size: 24px; }
+h3 { font-size: 20px; }
+h4 { font-size: 16px; }
+
+p {
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Focus ring for accessibility */
+:focus-visible {
+  outline: 2px solid var(--hp-primary);
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Utility classes */
+.text-primary { color: var(--hp-text-primary); }
+.text-secondary { color: var(--hp-text-secondary); }
+.text-tertiary { color: var(--hp-text-tertiary); }
+
+.text-sm { font-size: 12px; }
+.text-base { font-size: 14px; }
+.text-lg { font-size: 16px; }
+
+.font-semibold { font-weight: 600; }
+.font-bold { font-family: var(--font-family-display); font-weight: 700; }
+
+/* Responsive breakpoints */
+@media (max-width: 1280px) {
+  :root {
+    --sidebar-width: 240px;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 0px; /* hidden */
+  }
+}

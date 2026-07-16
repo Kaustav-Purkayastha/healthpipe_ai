@@ -1,0 +1,19 @@
+# requirements-core.txt
+# CORE TIER — everything needed to boot the Workbench, run the deterministic
+# agent pipeline, query DuckDB, and drive local/cloud AI routing. This is the
+# only tier CI installs and the only one required to run the app or the tests.
+#
+# Heavy database / cloud drivers live in the on-demand tiers
+# (requirements-connectors.txt, requirements-bigquery.txt) and are installed
+# per-engine at runtime by core/driver_manager.py from the UI — never needed to
+# boot. Versions are empirically pinned on Python 3.14.3 (Windows) and exercised
+# on 3.11 + 3.14 in CI.
+pandas==3.0.3
+pyarrow==25.0.0
+openpyxl==3.1.5
+duckdb>=1.1.0
+requests>=2.32.0
+python-dotenv>=1.0.1
+pytest>=8.3.0
+flask==3.0.0
+werkzeug==3.0.0

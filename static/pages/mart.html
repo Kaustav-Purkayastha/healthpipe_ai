@@ -1,0 +1,2704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>US States Health Mart — HealthPipe AI</title>
+  <link rel="icon" type="image/svg+xml" href="/static/healthpipe_logo.svg">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <style>
+    .planner-line.pending {
+      color: var(--hp-text-secondary);
+      font-style: italic;
+    }
+
+    .planner-line.rejected {
+      color: #92400E;
+      font-style: normal;
+    }
+
+    @keyframes pulse-update {
+      0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.35); }
+      100% { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); }
+    }
+
+    .just-updated {
+      animation: pulse-update 0.7s ease-out;
+    }
+
+    @keyframes icon-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn svg.icon-spin {
+      animation: icon-spin 0.9s linear infinite;
+    }
+
+    /* ---------- Step 0: available data sources ---------- */
+    .sources-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    /* ---------- Browsable catalog accordion (read-only reference) ---------- */
+    .catalog-accordion {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .cat-topic {
+      border: 1px solid var(--hp-border);
+      border-radius: 12px;
+      background: var(--hp-surface);
+      overflow: hidden;
+      align-self: start;
+    }
+
+    .cat-topic-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--hp-text-primary);
+      user-select: none;
+      transition: background 0.15s ease;
+    }
+
+    .cat-topic-head:hover {
+      background: var(--hp-bg);
+    }
+
+    .cat-topic-head .count {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--hp-text-secondary);
+      background: var(--hp-bg);
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-left: 8px;
+    }
+
+    .cat-topic-head .chev {
+      color: var(--hp-text-tertiary);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .cat-topic.open .cat-topic-head .chev {
+      transform: rotate(180deg);
+    }
+
+    .cat-topic-body {
+      display: none;
+      padding: 4px 12px 12px;
+      border-top: 1px solid var(--hp-border);
+    }
+
+    .cat-topic.open .cat-topic-body {
+      display: block;
+    }
+
+    .cat-measure {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 0;
+      font-size: 12.5px;
+      color: var(--hp-text-secondary);
+      border-bottom: 1px solid var(--hp-border);
+    }
+
+    .cat-measure:last-child {
+      border-bottom: none;
+    }
+
+    .cat-measure .cat-add {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--hp-primary);
+      border: 1px solid var(--hp-primary-100);
+      background: var(--hp-primary-soft);
+      border-radius: 999px;
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .cat-measure .cat-add:hover {
+      background: var(--hp-primary);
+      color: #fff;
+    }
+
+    .cat-measure .cat-add.added {
+      background: var(--hp-bg);
+      color: var(--hp-text-tertiary);
+      border-color: var(--hp-border);
+      cursor: default;
+    }
+
+    @media (max-width: 1024px) {
+      .catalog-accordion { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .catalog-accordion { grid-template-columns: 1fr; }
+    }
+
+    /* ---------- Step 2 empty state ---------- */
+    .plan-empty {
+      text-align: center;
+      padding: 28px 20px;
+      color: var(--hp-text-secondary);
+      font-size: 14px;
+      background: var(--hp-bg);
+      border: 1px dashed var(--hp-border);
+      border-radius: 16px;
+      margin-top: 8px;
+    }
+
+    .plan-empty b {
+      color: var(--hp-text-primary);
+      font-weight: 600;
+    }
+
+    /* Dim + lock the plan body until a plan or manual measures exist */
+    #plan-body.locked {
+      opacity: 0.45;
+      pointer-events: none;
+      filter: grayscale(0.3);
+    }
+
+    /* ---------- Step 1 inline rejection / status ---------- */
+    .prompt-feedback {
+      display: none;
+      margin-top: 12px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .prompt-feedback.show {
+      display: block;
+    }
+
+    .prompt-feedback.error {
+      background: #FEF3C7;
+      border: 1px solid #FDE68A;
+      color: #92400E;
+    }
+
+    .prompt-feedback.working {
+      background: var(--hp-secondary-100);
+      border: 1px solid #BAE6FD;
+      color: var(--hp-secondary-dark);
+    }
+
+    .prompt-feedback.ok {
+      background: var(--hp-primary-soft);
+      border: 1px solid var(--hp-primary-100);
+      color: var(--hp-primary-dark);
+    }
+
+    /* ---------- Step 1 candidate chooser ---------- */
+    .candidates {
+      display: none;
+      margin-top: 16px;
+      padding: 18px;
+      border: 1px solid var(--hp-primary-100);
+      background: var(--hp-primary-soft);
+      border-radius: 16px;
+    }
+
+    .candidates.show {
+      display: block;
+    }
+
+    .candidates-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .candidates-title {
+      font-family: var(--font-family-display);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--hp-text-primary);
+    }
+
+    .candidates-sub {
+      font-size: 12.5px;
+      color: var(--hp-text-secondary);
+      margin-top: 3px;
+      max-width: 60ch;
+    }
+
+    .candidates-prov {
+      font-size: 11px;
+      color: var(--hp-text-secondary);
+      text-align: right;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .candidates-caveat {
+      display: none;
+      margin-bottom: 14px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      background: #FEF3C7;
+      border: 1px solid #FDE68A;
+      color: #92400E;
+    }
+
+    .candidates-caveat.show {
+      display: block;
+    }
+
+    .candidates-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    /* A candidate is a toggle: selected = solid emerald, deselected = ghost */
+    .cand-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 13px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid var(--hp-primary);
+      background: var(--hp-primary);
+      color: #fff;
+      transition: all 0.15s ease;
+    }
+
+    .cand-chip .tick {
+      display: inline-flex;
+    }
+
+    .cand-chip.off {
+      background: #fff;
+      color: var(--hp-text-secondary);
+      border-color: var(--hp-border);
+    }
+
+    .cand-chip.off .tick {
+      display: none;
+    }
+
+    .cand-chip.primary-badge::after {
+      content: 'headline';
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: rgba(255, 255, 255, 0.25);
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+
+    .candidates-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .candidates-hint {
+      font-size: 12px;
+      color: var(--hp-text-secondary);
+    }
+
+    .source-item {
+      background: var(--hp-bg);
+      border: 1px solid var(--hp-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+
+    .source-item .name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--hp-text-primary);
+      margin-bottom: 4px;
+    }
+
+    .source-item .detail {
+      font-size: 12px;
+      color: var(--hp-text-secondary);
+      line-height: 1.5;
+    }
+
+    .source-item .source-volume {
+      margin-top: 8px;
+      font-family: var(--font-family-display);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--hp-primary-dark);
+    }
+
+    .source-item .kind-pill {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 6px;
+    }
+
+    .source-item .kind-pill.measures {
+      background: var(--hp-primary-100);
+      color: var(--hp-primary-dark);
+    }
+
+    .source-item .kind-pill.fixed {
+      background: var(--hp-secondary-100);
+      color: var(--hp-secondary-dark);
+    }
+
+    /* Consistent step header pill across Step 1 / 2 / 3 (matches the one on Step 2) */
+    .step-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--hp-secondary-100);
+      color: var(--hp-secondary-dark);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      letter-spacing: 0.01em;
+    }
+
+    .step-pill svg {
+      flex-shrink: 0;
+    }
+
+    /* Small helper line under a plan-field label (plain language, non-jargon) */
+    .field .field-help {
+      display: block;
+      font-size: 11.5px;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--hp-text-secondary);
+      margin: -2px 0 8px;
+      line-height: 1.4;
+    }
+
+    /* ---------- Custom dropdown (focus measure / summary audience) ---------- */
+    .dropdown-wrap {
+      position: relative;
+    }
+
+    .selectish {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .selectish:hover {
+      border-color: var(--hp-primary);
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      max-height: 260px;
+      overflow-y: auto;
+      background: var(--hp-surface);
+      border: 1px solid var(--hp-border);
+      border-radius: 12px;
+      box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.12);
+      padding: 6px;
+      z-index: 30;
+      display: none;
+    }
+
+    .dropdown-wrap.open .dropdown-menu {
+      display: block;
+    }
+
+    .dropdown-wrap.open .selectish {
+      border-color: var(--hp-primary);
+      box-shadow: 0 0 0 3px var(--hp-primary-soft);
+    }
+
+    .dropdown-menu button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: none;
+      padding: 9px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--hp-text-primary);
+      cursor: pointer;
+    }
+
+    .dropdown-menu button:hover {
+      background: var(--hp-bg);
+    }
+
+    /* ---------- Add-measure picker popover ---------- */
+    .measure-picker {
+      position: relative;
+      display: inline-block;
+    }
+
+    .measure-picker-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      width: 340px;
+      max-height: 320px;
+      overflow-y: auto;
+      background: var(--hp-surface);
+      border: 1px solid var(--hp-border);
+      border-radius: 16px;
+      box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.15);
+      padding: 10px;
+      z-index: 40;
+      display: none;
+    }
+
+    .measure-picker.open .measure-picker-menu {
+      display: block;
+    }
+
+    .measure-picker-menu input[type="text"] {
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    .measure-picker-topic {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--hp-text-secondary);
+      padding: 8px 6px 2px;
+    }
+
+    .measure-picker-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: none;
+      padding: 7px 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--hp-text-primary);
+      cursor: pointer;
+    }
+
+    .measure-picker-item:hover {
+      background: var(--hp-primary-soft);
+      color: var(--hp-primary-dark);
+    }
+
+    .measure-picker-item.already-added {
+      color: var(--hp-text-tertiary);
+      cursor: default;
+    }
+
+    .measure-picker-item.already-added:hover {
+      background: none;
+    }
+
+    .measure-picker-empty {
+      font-size: 12.5px;
+      color: var(--hp-text-secondary);
+      padding: 10px;
+      text-align: center;
+    }
+
+    .suggestions-note {
+      font-size: 11px;
+      color: var(--hp-text-tertiary);
+      margin-top: 8px;
+    }
+
+    #viewing-line {
+      margin: 4px 0 18px;
+    }
+
+    .results-caveat {
+      display: none;
+      padding: 12px 16px;
+      margin-bottom: 4px;
+      border-radius: 14px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      background: #FEF3C7;
+      border: 1px solid #FDE68A;
+      color: #92400E;
+    }
+
+    .results-caveat.show {
+      display: block;
+    }
+
+    #plan-caveat.show {
+      margin: 4px 0 16px;
+    }
+
+    /* "From your request: ..." — pins a plan/result to the exact question it came from */
+    .plan-from {
+      display: none;
+      margin: 8px 0 0;
+      padding: 8px 14px;
+      border-left: 3px solid var(--hp-border);
+      font-size: 13px;
+      color: var(--hp-text-secondary);
+    }
+
+    .plan-from.show {
+      display: block;
+    }
+
+    .plan-from .q {
+      color: var(--hp-text-primary);
+      font-style: italic;
+    }
+
+    /* ---------- Ranking bar chart ---------- */
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 9px;
+    }
+
+    .bar-state {
+      width: 116px;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--hp-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 16px;
+      background: var(--hp-bg);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--hp-primary);
+      transition: width 0.5s ease;
+    }
+
+    .bar-fill.sky {
+      background: var(--hp-secondary);
+    }
+
+    .bar-val {
+      width: 52px;
+      flex-shrink: 0;
+      text-align: right;
+      font-family: var(--font-family-display);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--hp-text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ---------- Key findings ---------- */
+    .findings {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .findings li {
+      position: relative;
+      padding: 0 0 0 20px;
+      margin-bottom: 9px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #334155;
+    }
+
+    .findings li::before {
+      content: '';
+      position: absolute;
+      left: 2px;
+      top: 7px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--hp-primary);
+    }
+
+    .findings li b {
+      color: var(--hp-text-primary);
+      font-family: var(--font-family-display);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ---------- Ask this mart ---------- */
+    .ask-followups {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .ask-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .ask-row input {
+      flex: 1;
+    }
+
+    .ask-row .btn {
+      flex-shrink: 0;
+    }
+
+    .ask-result {
+      margin-top: 18px;
+    }
+
+    .ask-narration {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: #334155;
+      margin-bottom: 12px;
+    }
+
+    .ask-sql {
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 12px;
+      background: var(--hp-primary-dark);
+      color: #A7F3D0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      margin-bottom: 12px;
+    }
+
+    .ask-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--hp-border);
+      border-radius: 12px;
+    }
+
+    .ask-error {
+      font-size: 13px;
+      color: #92400E;
+      background: #FEF3C7;
+      border: 1px solid #FDE68A;
+      border-radius: 12px;
+      padding: 11px 14px;
+    }
+
+    /* ---------- CTA ---------- */
+    .cta-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .scatter-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 220px;
+      margin-top: 16px;
+      background: var(--hp-bg);
+      border: 1px dashed var(--hp-border);
+      border-radius: 16px;
+      color: var(--hp-text-secondary);
+      font-size: 13.5px;
+      text-align: center;
+    }
+
+    .scatter-empty-icon {
+      font-size: 32px;
+      opacity: 0.5;
+    }
+
+    .comp-scatter .dot { transition: r 0.15s ease; cursor: default; }
+    .comp-scatter .dot:hover { r: 8; }
+
+    /* ---------- Intro card: how-to-use accordion ---------- */
+    .how-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 6px;
+      padding: 8px 14px;
+      border: 1px solid var(--hp-border);
+      background: var(--hp-surface);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--hp-primary-dark);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+    .how-toggle:hover { border-color: var(--hp-primary); background: var(--hp-primary-soft); }
+    .how-toggle .chev { transition: transform 0.2s ease; }
+    .how-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+    .how-body { display: none; margin-top: 14px; }
+    .how-body.open { display: block; }
+    .how-steps { margin: 0; padding-left: 20px; }
+    .how-steps li {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #334155;
+      margin-bottom: 8px;
+      max-width: 84ch;
+    }
+    .how-steps li b { color: var(--hp-text-primary); }
+
+    /* ---------- My marts ---------- */
+    .mymarts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .mymart {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border: 1px solid var(--hp-border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      background: var(--hp-bg);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .mymart:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+    .mymart .mm-title {
+      font-family: var(--font-family-display);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--hp-text-primary);
+      line-height: 1.3;
+    }
+    .mymart .mm-meta { font-size: 11.5px; color: var(--hp-text-secondary); }
+    .mymart .mm-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mymart .mm-pill {
+      font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+      background: var(--hp-secondary-100); color: var(--hp-secondary-dark);
+    }
+    .mymart .mm-pill.mode { background: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .mymart .mm-open {
+      align-self: flex-start; margin-top: 4px;
+      font-size: 12.5px; font-weight: 600; color: #fff; background: var(--hp-primary);
+      border: none; border-radius: 999px; padding: 6px 14px; cursor: pointer;
+      font-family: inherit; transition: background 0.15s ease;
+    }
+    .mymart .mm-open:hover { background: var(--hp-primary-dark); }
+    /* My-marts search + sort controls */
+    .mm-controls { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+    .mm-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 12px; padding: 9px 13px; color: var(--hp-text-tertiary); transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+    .mm-search:focus-within { border-color: var(--hp-primary); box-shadow: 0 0 0 3px var(--hp-primary-soft); color: var(--hp-primary); }
+    .mm-search input { border: none; background: none; outline: none; font: inherit; font-size: 13.5px; color: var(--hp-text-primary); width: 100%; }
+    .mm-search svg { flex-shrink: 0; }
+    .mm-sort { padding: 9px 13px; font-size: 13.5px; border: 1px solid var(--hp-border); border-radius: 12px; font-family: inherit; background: var(--hp-surface); color: var(--hp-text-primary); cursor: pointer; }
+    .mm-sort:focus { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px var(--hp-primary-soft); }
+    .mymarts-empty { margin-top: 14px; color: var(--hp-text-secondary); font-size: 13.5px; }
+
+    /* ---------- Onboarded (dynamic) sources ---------- */
+    .onboarded-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .onboarded-item {
+      border: 1px solid var(--hp-border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: var(--hp-surface);
+    }
+    .onboarded-item .name {
+      font-size: 12.5px; font-weight: 700; color: var(--hp-text-primary);
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+    }
+    .onboarded-item .detail { font-size: 11px; color: var(--hp-text-secondary); margin-top: 3px; }
+    .onboarded-item .vol { font-size: 11.5px; font-weight: 600; color: var(--hp-primary-dark); margin-top: 4px; }
+
+    /* ---------- Pre-analyzed onboarded sources ---------- */
+    .onb-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .onb-row { border: 1px solid var(--hp-border); border-radius: 16px; padding: 15px 18px; background: var(--hp-bg); }
+    .onb-row-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .onb-name { font-family: var(--font-family-display); font-size: 14.5px; font-weight: 700; color: var(--hp-text-primary); }
+    .onb-stats { font-size: 11.5px; color: var(--hp-text-secondary); margin-top: 2px; }
+    .onb-badge {
+      flex-shrink: 0; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 3px 9px; border-radius: 999px; background: var(--hp-primary-100); color: var(--hp-primary-dark);
+    }
+    .onb-metrics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .onb-metric-add {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12.5px; font-weight: 600; color: var(--hp-secondary-dark);
+      background: var(--hp-secondary-100); border: 1px solid #BAE6FD; border-radius: 999px;
+      padding: 6px 12px; cursor: pointer; font-family: inherit; transition: all 0.15s ease;
+    }
+    .onb-metric-add:hover:not(:disabled) { background: var(--hp-secondary); color: #fff; border-color: var(--hp-secondary); }
+    .onb-metric-add:disabled { opacity: 0.55; cursor: default; }
+    .onb-metric-add .m-meaning { font-weight: 400; color: inherit; opacity: 0.8; }
+    .onb-none { font-size: 12.5px; color: var(--hp-text-secondary); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hp-border); }
+    /* External candidate chips read sky (distinct from emerald CDC candidates) */
+    .cand-chip.ext { border-color: var(--hp-secondary); background: var(--hp-secondary); }
+    .cand-chip.ext.off { background: #fff; color: var(--hp-text-secondary); border-color: var(--hp-border); }
+    .cand-chip.ext::after {
+      content: 'your data'; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 999px;
+    }
+    .cand-chip.ext.off::after { background: var(--hp-bg); color: var(--hp-text-tertiary); }
+    .src-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .src-item {
+      border: 1px solid var(--hp-border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      background: var(--hp-bg);
+    }
+    .src-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    }
+    .src-head .src-name {
+      font-family: var(--font-family-display); font-size: 15px; font-weight: 700; color: var(--hp-text-primary);
+    }
+    .src-head .src-meta { font-size: 11.5px; color: var(--hp-text-secondary); margin-top: 2px; }
+    .src-analyze {
+      flex-shrink: 0; font-size: 12.5px; font-weight: 600; color: var(--hp-primary-dark);
+      background: var(--hp-surface); border: 1px solid var(--hp-primary-100); border-radius: 999px;
+      padding: 7px 14px; cursor: pointer; font-family: inherit; transition: all 0.15s ease;
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .src-analyze:hover:not(:disabled) { background: var(--hp-primary); color: #fff; border-color: var(--hp-primary); }
+    .src-analyze:disabled { opacity: 0.6; cursor: default; }
+    .src-verdict { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hp-border); }
+    .src-verdict.show { display: block; }
+    .src-verdict .verdict-line {
+      display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; margin-bottom: 6px;
+    }
+    .src-verdict.useful .verdict-line { color: var(--hp-primary-dark); }
+    .src-verdict.notuseful .verdict-line { color: #92400E; }
+    .src-verdict .verdict-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 2px 9px; border-radius: 999px;
+    }
+    .src-verdict.useful .verdict-badge { background: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .src-verdict.notuseful .verdict-badge { background: #FEF3C7; color: #92400E; }
+    .src-verdict .verdict-reason { font-size: 13px; line-height: 1.55; color: #334155; margin-bottom: 10px; }
+    .src-verdict .verdict-by { font-size: 11px; color: var(--hp-text-tertiary); margin-top: 8px; }
+    .src-metrics { display: flex; flex-direction: column; gap: 6px; }
+    .src-metric {
+      display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; padding: 6px 0;
+      border-bottom: 1px solid var(--hp-border);
+    }
+    .src-metric:last-child { border-bottom: none; }
+    .src-metric code {
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px;
+      background: var(--hp-primary-soft); color: var(--hp-primary-dark); padding: 1px 6px; border-radius: 6px; flex-shrink: 0;
+    }
+    .src-metric .m-meaning { color: var(--hp-text-secondary); flex: 1; min-width: 0; }
+    .src-metric .metric-add {
+      flex-shrink: 0; font-size: 11.5px; font-weight: 600; color: #fff; background: var(--hp-primary);
+      border: none; border-radius: 999px; padding: 5px 12px; cursor: pointer; font-family: inherit; transition: background 0.15s ease;
+    }
+    .src-metric .metric-add:hover:not(:disabled) { background: var(--hp-primary-dark); }
+    .src-metric .metric-add:disabled { background: var(--hp-primary-100); color: var(--hp-primary-dark); cursor: default; }
+
+    /* External (onboarded) measure chips read as sky, distinct from CDC measures */
+    .mchip.ext { background: var(--hp-secondary-100); border-color: var(--hp-secondary); color: var(--hp-secondary-dark); }
+
+    /* ---------- Dynamic components: masonry (packs tight, no grid gaps) ---------- */
+    .components {
+      column-count: 2;
+      column-gap: 20px;
+      margin-top: 12px;
+    }
+    .components .component {
+      break-inside: avoid;
+      -webkit-column-break-inside: avoid;
+      page-break-inside: avoid;
+      display: block;
+      width: 100%;
+      margin: 0 0 20px;
+    }
+    .components-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; min-height: 200px;
+      background: var(--hp-bg); border: 1px dashed var(--hp-border); border-radius: 16px;
+      color: var(--hp-text-secondary); font-size: 13.5px; text-align: center;
+    }
+    @media (max-width: 900px) { .components { column-count: 1; } }
+
+    /* Intro theme note — states the burden-vs-spend purpose */
+    .theme-note {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: var(--hp-primary-soft);
+      border: 1px solid var(--hp-primary-100);
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--hp-primary-dark);
+      max-width: 84ch;
+    }
+    .theme-note b { color: var(--hp-primary-dark); }
+
+    .component .comp-prov {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hp-border);
+      font-size: 11px; color: var(--hp-text-tertiary);
+    }
+    .component .comp-prov .cloud-pill,
+    .component .comp-prov .local-pill {
+      font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+    }
+    .component .comp-prov .cloud-pill { background: var(--hp-secondary-100); color: var(--hp-secondary-dark); }
+    .component .comp-prov .local-pill { background: var(--hp-primary-100); color: var(--hp-primary-dark); }
+
+    /* distribution histogram */
+    .dist-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .dist-label {
+      width: 92px; flex-shrink: 0; font-size: 11px; color: var(--hp-text-secondary);
+      font-variant-numeric: tabular-nums; text-align: right;
+    }
+    .dist-track { flex: 1; height: 20px; background: var(--hp-bg); border-radius: 8px; overflow: hidden; }
+    .dist-fill { height: 100%; background: var(--hp-secondary); border-radius: 8px; transition: width 0.5s ease; }
+    .dist-count {
+      width: 88px; flex-shrink: 0; font-size: 11.5px; color: var(--hp-text-secondary);
+    }
+    .dist-count b { color: var(--hp-text-primary); font-family: var(--font-family-display); }
+
+    /* generic component rows (top states, anomalies, pairwise) */
+    .comp-row {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--hp-border); font-size: 13px;
+    }
+    .comp-row:last-child { border-bottom: none; }
+    .comp-row .co {
+      color: var(--hp-text-primary); font-weight: 600;
+      flex: 1; min-width: 0; line-height: 1.4;
+      overflow-wrap: anywhere; word-break: break-word;
+    }
+    .comp-row .co .rel { color: var(--hp-text-tertiary); font-weight: 500; padding: 0 4px; }
+    .comp-row .mv {
+      flex-shrink: 0; white-space: nowrap;
+      font-family: var(--font-family-display); font-weight: 700; color: var(--hp-primary-dark);
+      font-variant-numeric: tabular-nums;
+    }
+    .comp-row .mv.note { color: var(--hp-text-secondary); font-weight: 600; font-family: var(--font-family-body); font-size: 12px; white-space: normal; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="mark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 5 4-12 2 7h6"/></svg>
+        </div>
+        <div>
+          <div class="name">HealthPipe&nbsp;AI</div>
+          <div class="sb-credit">Built by <strong>Kaustav Purkayastha</strong></div>
+        </div>
+      </div>
+      <a class="navlink" href="/pages/dashboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Dashboard</a>
+      <a class="navlink" href="/pages/onboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h10v8H4z"/><path d="M18 12h2v8h-2z"/></svg>Onboard data</a>
+      <a class="navlink active" href="/pages/mart.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>US States Health Mart</a>
+      <a class="navlink" href="/pages/chat.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Ask the data</a>
+      <a class="navlink" href="/pages/sql.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>SQL console</a>
+      <div class="sb-spacer"></div>
+      <div class="model-panel" id="model-panel" style="display:none;">
+        <div class="mp-label">AI models</div>
+        <div class="mp-list" id="mp-list"></div>
+        <div class="mp-modes" id="mp-modes">
+          <button class="mp-mode" data-mode="hybrid"><span class="mp-mode-title">Cloud + on-device</span></button>
+          <button class="mp-mode" data-mode="local_only"><span class="mp-mode-title">On-device only</span></button>
+        </div>
+        <div class="mp-help" id="mp-help"></div>
+      </div>
+      <div class="verified">
+        <div class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div><b>Private by design</b><br><span>Data stays on this device</span></div>
+      </div>
+      <a class="logout" href="#logout">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Log out</a>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="page-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+          </div>
+          <div class="title-wrap">
+            <h1>US States Health Mart</h1>
+            <p class="sub">How health burden and Medicare spend compare across all 50 states + DC</p>
+          </div>
+        </div>
+        <div class="right">
+          <button class="btn btn-ghost" id="reset-btn" title="Clear everything and start a new mart">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+            Reset
+          </button>
+          <div class="tb-divider"></div>
+          <button class="avatar-btn" aria-label="Signed in as KP" title="Signed in">
+            <span class="avatar">KP</span>
+            <span class="avatar-status" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- INTRO — what this mart is + how to use it -->
+        <section class="card intro-card">
+          <div class="eyebrow">What this is</div>
+          <div class="sec-title">A US-wide, state-level public-health data mart — built by AI, on demand</div>
+          <p class="sec-sub" style="max-width:80ch;">
+            This workspace turns three public-health feeds — <b>CDC chronic-disease indicators</b>,
+            <b>CMS Medicare payments</b>, and <b>US Census population</b> — into one clean 51-row table
+            (every US state + DC). Describe what you want to see in plain language; a model plans which
+            measures to include, the deterministic engine builds the table, and a second model analyses
+            the real numbers. Nothing but measure names ever leaves this machine.
+          </p>
+          <div class="theme-note">
+            <b>What every mart answers:</b> how does health <b>burden</b> relate to <b>Medicare spending</b> across states?
+            You choose which CDC measures define "burden" (one, or several combined into a 0–100 index);
+            the mart always compares them against Medicare spend per capita. So the burden-vs-spend view is the
+            constant spine — what changes each time is <i>which conditions make up the burden</i> and where the states land.
+          </div>
+          <button class="how-toggle" id="how-toggle" aria-expanded="false">
+            <svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            How to use this mart
+          </button>
+          <div class="how-body" id="how-body">
+            <ol class="how-steps">
+              <li><b>Browse what's available</b> — check the sources and CDC measure topics below so you know what can be built.</li>
+              <li><b>Describe your mart</b> in Step 1 in plain language (e.g. "compare obesity and smoking to Medicare spend for a policy audience"). Press <b>Enter</b> to plan; <b>Shift+Enter</b> for a new line.</li>
+              <li><b>Choose the measures</b> the AI matched, then <b>review &amp; build</b> in Step 2. Pick more than one measure and they're combined into a single burden index.</li>
+              <li><b>Explore</b> — the AI decides which charts and insights fit your specific mart, then narrates the findings. Ask follow-up questions in plain language.</li>
+              <li>Every mart is saved as its own queryable table and appears under <b>My marts</b> to reopen later. Use <b>Reset</b> (top-right) to start fresh.</li>
+            </ol>
+          </div>
+        </section>
+
+        <!-- MY MARTS — previously built, reopenable across sessions -->
+        <section class="card" id="mymarts-card" style="display:none;">
+          <div class="eyebrow">My marts</div>
+          <div class="sec-title" style="font-size:18px;">Marts you've built</div>
+          <p class="sec-sub" style="margin-top:2px;">These persist across sessions. Reopen one to explore it again, or start a new mart below.</p>
+          <div class="mm-controls" id="mymarts-controls" style="display:none;">
+            <label class="mm-search">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+              <input type="text" id="mymarts-search" placeholder="Search your marts by name, prompt or measure…" autocomplete="off">
+            </label>
+            <select class="mm-sort" id="mymarts-sort" aria-label="Sort marts">
+              <option value="new">Newest first</option>
+              <option value="old">Oldest first</option>
+              <option value="name">Name A–Z</option>
+              <option value="type">Type (combined first)</option>
+            </select>
+          </div>
+          <div class="mymarts-grid" id="mymarts-grid"></div>
+          <div class="mymarts-empty" id="mymarts-empty" style="display:none;"></div>
+          <button class="btn btn-ghost" id="mymarts-showall" style="display:none; margin-top:14px;"></button>
+        </section>
+
+        <!-- SECTION 0 — WHAT'S ACTUALLY AVAILABLE -->
+        <section class="card">
+          <div class="eyebrow">Before you start</div>
+          <div class="sec-title">What this mart can be built from</div>
+          <p class="sec-sub" id="sources-grain">Loading data sources…</p>
+          <div class="sources-grid" id="sources-grid"></div>
+
+          <div style="margin-top:22px;">
+            <div class="eyebrow">Browse CDC measures by topic</div>
+            <p class="sec-sub" style="margin-top:4px;">Open a topic to see its measures. These are what you can ask for below — describe them in Step 1, or add one straight to your plan.</p>
+            <div class="catalog-accordion" id="catalog-accordion">
+              <div class="sec-sub" style="grid-column:1/-1;">Loading measures…</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- USE ONBOARDED DATA — AI relevance gate -->
+        <section class="card" id="onboarded-card" style="display:none;">
+          <div class="eyebrow">Optional · your data</div>
+          <div class="sec-title" style="font-size:18px;">Bring in data you've onboarded</div>
+          <p class="sec-sub" style="max-width:84ch;">
+            Datasets you onboarded via <a href="/pages/onboard.html" style="color:var(--hp-primary);font-weight:600;">Onboard data</a> are
+            <b>profiled on-device the moment they land</b>, so there's nothing to wait for here — the ones that fit this state-level
+            mart are listed below with the metrics they can contribute. Add a metric to your plan, or just describe what you want in Step 1
+            and the planner will suggest relevant ones automatically.
+          </p>
+          <div class="onb-list" id="onb-list"></div>
+          <button class="btn btn-ghost" id="onb-showall" style="display:none; margin-top:12px;"></button>
+          <div class="onb-none" id="onb-none" style="display:none;"></div>
+        </section>
+
+        <!-- SECTION 1 — GENERATOR (the spine) -->
+        <section class="card gen">
+          <div class="step-pill">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            Step 1 · Describe
+          </div>
+          <div class="sec-title">Generate a mart with AI</div>
+          <p class="sec-sub">Say what you want to see in plain language, using a measure listed above. A model plans it; the deterministic engine builds the 51-state table.</p>
+          <textarea id="prompt-input" rows="2" placeholder="e.g. Compare diabetes burden against Medicare spend per state, and give me a payer-focused executive summary."></textarea>
+          <div class="examples" id="examples-row">
+            <span class="chip-ex">Loading suggestions…</span>
+          </div>
+          <p class="suggestions-note">Suggested from the measures actually available above — not AI-generated per load, to keep this instant.</p>
+          <div class="row">
+            <button class="btn btn-primary" id="plan-btn">
+              <svg id="plan-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></svg>
+              <span class="btn-label">Plan the mart</span>
+            </button>
+          </div>
+          <div class="prompt-feedback" id="prompt-feedback"></div>
+
+          <!-- Candidate chooser: appears after planning, before Step 2 -->
+          <div class="candidates" id="candidates">
+            <div class="candidates-head">
+              <div>
+                <div class="candidates-title" id="candidates-title">Choose what to build</div>
+                <div class="candidates-sub" id="candidates-sub">These measures matched your description. Deselect any you didn't mean, then continue.</div>
+              </div>
+              <div class="candidates-prov" id="candidates-prov"></div>
+            </div>
+            <div class="candidates-caveat" id="candidates-caveat"></div>
+            <div class="candidates-chips" id="candidates-chips"></div>
+            <div class="candidates-actions">
+              <button class="btn btn-primary" id="continue-btn">
+                Continue to review
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+              <span class="candidates-hint" id="candidates-hint"></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 2 — THE PLAN (confirm before build) -->
+        <section class="card plan" id="plan-section">
+          <div class="step-pill">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+            Step 2 · Review
+          </div>
+          <div class="sec-title" id="plan-title">No plan yet</div>
+          <p class="sec-sub" id="plan-subtitle">Describe a mart in Step 1 and click "Plan the mart" — the AI's proposed measures and settings appear here for you to review and tweak.</p>
+
+          <!-- The exact question this plan came from (Step 1 box stays editable). -->
+          <div class="plan-from" id="plan-from"></div>
+
+          <!-- Persistent honesty note during review (mirrors the Step 1 caveat) -->
+          <div class="results-caveat" id="plan-caveat"></div>
+
+          <!-- Empty state: shown until a plan exists or a measure is added manually -->
+          <div class="plan-empty" id="plan-empty">
+            Nothing planned yet. <b>Describe a mart above</b> and click "Plan the mart", or expand a topic under
+            "Before you start" and <b>add a measure</b> to start building manually.
+          </div>
+
+          <!-- Editable plan body: locked/dimmed until there's something to edit -->
+          <div id="plan-body" class="locked">
+            <div class="plan-grid">
+              <div class="field">
+                <label>Measures in the table</label>
+                <span class="field-help">The health measures that become columns, one per state.</span>
+                <div class="mchips" id="measure-chips">
+                  <span class="mchip add" id="add-measure-chip">+ add measure</span>
+                </div>
+                <div class="measure-picker" id="measure-picker">
+                  <div class="measure-picker-menu" id="measure-picker-menu"></div>
+                </div>
+              </div>
+              <div class="field" id="focus-field">
+                <label id="focus-label">Measure to focus on</label>
+                <span class="field-help" id="focus-help">Which measure the cards and drill-down highlight.</span>
+                <div class="dropdown-wrap" id="headline-dropdown">
+                  <div class="selectish"><span class="dropdown-value">—</span><span class="cx">&#9662;</span></div>
+                  <div class="dropdown-menu"></div>
+                </div>
+              </div>
+              <div class="field">
+                <label>Write the summary for</label>
+                <span class="field-help">Sets the tone of the AI write-up — it doesn't change the numbers.</span>
+                <div class="dropdown-wrap" id="audience-dropdown"
+                     data-options="A payer — cost, ROI, risk::payer|A clinician — outcomes, access::clinical|A policymaker — equity, investment gaps::policy|An executive — headline summary::general">
+                  <div class="selectish"><span class="dropdown-value">A payer — cost, ROI, risk</span><span class="cx">&#9662;</span></div>
+                  <div class="dropdown-menu"></div>
+                </div>
+              </div>
+              <div class="field">
+                <label>Name this mart</label>
+                <span class="field-help">A short title for this build.</span>
+                <div class="selectish title-edit">
+                  <input type="text" id="title-input" placeholder="Untitled mart" value="">
+                </div>
+              </div>
+            </div>
+
+            <div class="foot">
+              <div class="planner-line pending" id="planner-status">Review the measures above, then build.</div>
+              <div class="actions">
+                <button class="btn btn-ghost" id="discard-btn">Discard</button>
+                <button class="btn btn-primary" id="build-btn" disabled>
+                  <svg id="build-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"/></svg>
+                  <span class="btn-label">Build this mart</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div id="results-section">
+          <p class="sec-sub" id="viewing-line">Currently exploring: <strong id="viewing-title">—</strong> · last built <span id="last-built">—</span></p>
+
+          <!-- The question this built mart came from. -->
+          <div class="plan-from" id="results-from"></div>
+
+          <!-- Persistent honesty note when the question over-reached the data grain -->
+          <div class="results-caveat" id="results-caveat"></div>
+
+          <!-- SECTION 3 — BENTO STATS -->
+          <div class="stats" id="stats-grid">
+            <div class="stat bento">
+              <div class="circle"></div>
+              <div class="lbl">States covered</div>
+              <div class="val" id="stat-states">—</div>
+              <div class="foot2">of 50 states + DC</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">Top spend / capita</div>
+              <div class="val" id="stat-spend">—</div>
+              <div class="foot2" id="stat-spend-foot">Medicare, by state</div>
+            </div>
+            <div class="stat">
+              <div class="lbl" id="stat-measure-label">Top measure</div>
+              <div class="val" id="stat-measure">—</div>
+              <div class="foot2" id="stat-measure-foot">crude prevalence, adults</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">Burden &harr; spend</div>
+              <div class="val" id="stat-corr">—</div>
+              <div class="foot2" id="stat-corr-foot">correlation, r</div>
+            </div>
+          </div>
+
+          <div class="step-pill" style="margin-top:24px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+            Step 3 · Explore
+          </div>
+          <p class="sec-sub" id="explore-hint" style="margin:4px 0 2px;">Build a mart in Step 2 — the AI then picks the charts and insights that fit it and narrates the findings.</p>
+          <p class="sec-sub" id="explore-intro" style="margin:4px 0 2px; display:none;"></p>
+
+          <!-- SECTION 4 — DYNAMIC, AI-CHOSEN COMPONENTS -->
+          <div class="components" id="components">
+            <div class="components-empty" id="components-empty">
+              <div class="scatter-empty-icon">📊</div>
+              <div>Build a mart and the AI will choose the charts and insights that fit it.</div>
+            </div>
+          </div>
+
+          <!-- SECTION 5 — ASK THIS MART (inline NL→SQL) -->
+          <section class="card" id="ask-card" style="display:none; margin-top:24px;">
+            <div class="step-pill">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+              Ask this mart · AI
+            </div>
+            <div class="sec-title">Ask this mart in plain language</div>
+            <p class="sec-sub">The AI writes SQL against your built table (read-only) and answers — nothing leaves the machine but the schema.</p>
+            <div class="ask-followups" id="ask-followups"></div>
+            <div class="ask-row">
+              <input type="text" id="ask-input" placeholder="e.g. which 5 states have the highest burden but the lowest spend?">
+              <button class="btn btn-primary" id="ask-btn"><span class="btn-label">Ask</span></button>
+            </div>
+            <div class="ask-result" id="ask-result" style="display:none;"></div>
+          </section>
+
+          <!-- SECTION 6 — MART LOADED CTA -->
+          <section class="card" id="loaded-cta" style="display:none; margin-top:24px; background:var(--hp-primary-soft); border-color:var(--hp-primary-100);">
+            <div class="cta-inner">
+              <div>
+                <div class="sec-title" style="font-size:16px;">✓ This mart is loaded as a queryable table</div>
+                <p class="sec-sub" id="cta-sub">It's now the DuckDB table <code>reporting_state_health</code>. Query it directly, or ask it in plain language.</p>
+              </div>
+              <div class="cta-actions">
+                <a class="btn btn-ghost" href="/pages/sql.html">Open SQL console</a>
+                <a class="btn btn-primary" href="/pages/chat.html">Ask the data</a>
+              </div>
+            </div>
+          </section>
+
+          <div class="callout" style="margin-top:24px;">Everything on this screen was generated on this device. Only measure names — never data rows — ever reach the cloud.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    // Always land at the top on reload — don't restore the previous scroll spot.
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+    window.addEventListener('load', () => window.scrollTo(0, 0));
+
+    const promptInput = document.getElementById('prompt-input');
+    const planBtn = document.getElementById('plan-btn');
+    const planIcon = document.getElementById('plan-icon');
+    const buildIcon = document.getElementById('build-icon');
+    const planSection = document.getElementById('plan-section');
+    const discardBtn = document.getElementById('discard-btn');
+    const buildBtn = document.getElementById('build-btn');
+    const plannerStatus = document.getElementById('planner-status');
+    const titleInput = document.getElementById('title-input');
+    const planTitle = document.getElementById('plan-title');
+    const viewingTitle = document.getElementById('viewing-title');
+    const lastBuilt = document.getElementById('last-built');
+    const statsGrid = document.getElementById('stats-grid');
+    const componentsEl = document.getElementById('components');
+    const resetBtn = document.getElementById('reset-btn');
+    const measureChips = document.getElementById('measure-chips');
+    const addChip = document.getElementById('add-measure-chip');
+    const planEmpty = document.getElementById('plan-empty');
+    const planBody = document.getElementById('plan-body');
+    const planSubtitle = document.getElementById('plan-subtitle');
+    const promptFeedback = document.getElementById('prompt-feedback');
+    const candidates = document.getElementById('candidates');
+    const candidatesChips = document.getElementById('candidates-chips');
+    const candidatesProv = document.getElementById('candidates-prov');
+    const candidatesHint = document.getElementById('candidates-hint');
+    const candidatesCaveat = document.getElementById('candidates-caveat');
+    const continueBtn = document.getElementById('continue-btn');
+
+    let CATALOG_TOPICS = {};   // {topic: [{id,label}, ...]}
+    let CATALOG_DEFAULTS = [];
+    let LABEL_BY_ID = {};      // {questionid: label} for the whole catalog
+    let LAST_PLAN = null;      // the most recent /api/mart/plan result being chosen from
+    let PENDING_CAVEAT = null; // honesty note that must persist from plan → built results
+    let PLANNED_PROMPT = '';   // the exact question that produced the current plan (Step 1 box is editable)
+    let EXTERNAL_SPECS = {};   // ext measure id -> {id,table,column,aggregation,state_col,label} (onboarded metrics added to the plan)
+    let CAND_EXTERNALS = {};   // ext id -> spec, for onboarded metrics the planner suggested this round
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // USPS abbreviation → full state name, so summaries read "West Virginia" not "WV".
+    const STATE_NAMES = {
+      AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',
+      CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',GA:'Georgia',
+      HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',
+      LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',
+      MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',
+      NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',
+      OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',
+      SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',
+      WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming'
+    };
+    function stateName(abbr) { return STATE_NAMES[String(abbr).toUpperCase()] || abbr; }
+
+    // Render the AI briefing as light markdown: drop any leading title/heading the
+    // model added (it duplicates the card title), convert **bold**, and split into
+    // paragraphs. Everything is escaped first, so this is safe on model output.
+    function renderBriefingMarkdown(text, title) {
+      if (!text || !text.trim()) return '<p>No briefing available.</p>';
+      let lines = text.replace(/\r/g, '').split('\n');
+      const titleLc = (title || '').trim().toLowerCase();
+      // Strip leading blank / heading / bold-only / title-echo lines.
+      while (lines.length) {
+        const raw = lines[0].trim();
+        const bare = raw.replace(/[*#>_`\s]/g, '').toLowerCase();
+        const isHeading = raw === '' || /^#{1,6}\s/.test(raw) || /^\*\*[^*]+\*\*:?$/.test(raw);
+        const echoesTitle = titleLc && bare === titleLc.replace(/\s/g, '');
+        if (isHeading || echoesTitle) { lines.shift(); } else { break; }
+      }
+      const body = lines.join('\n').trim();
+      const paras = body.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+      return paras.map(p => {
+        let html = escapeHtml(p).replace(/\n/g, ' ');
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        return `<p>${html}</p>`;
+      }).join('');
+    }
+
+    // Show/clear a "From your request: ..." line pinning a plan/result to the
+    // exact question it came from (the Step 1 box is editable, so it can't be relied on).
+    function setPlanFrom(id, prompt) {
+      const el = document.getElementById(id);
+      if (prompt) {
+        el.innerHTML = `From your request: <span class="q">"${escapeHtml(prompt)}"</span>`;
+        el.classList.add('show');
+      } else {
+        el.textContent = '';
+        el.classList.remove('show');
+      }
+    }
+
+    // Single source of truth for Step 2's shown/locked state. Called whenever
+    // the measure set changes (plan, manual add, remove, discard). Keeps the
+    // empty state, the body lock, and the Build button's enabled-ness in sync so
+    // you can never see "no measures" and an active Build button at the same time.
+    function syncPlanState() {
+      const n = currentMeasureIds().length;
+      const has = n > 0;
+      planEmpty.style.display = has ? 'none' : 'block';
+      planBody.classList.toggle('locked', !has);
+      buildBtn.disabled = !has;
+      if (!has) {
+        planTitle.textContent = 'No plan yet';
+      }
+      // With several measures the combined burden index is the headline and a
+      // single "focus measure" changes nothing visible — so hide that control
+      // entirely (it only makes sense, and drives everything, in single-measure mode).
+      const focusField = document.getElementById('focus-field');
+      if (focusField) focusField.style.display = n >= 2 ? 'none' : 'block';
+    }
+
+    // Inline feedback under the Step 1 prompt (kind: 'working' | 'error' | 'ok').
+    function setPromptFeedback(kind, html) {
+      if (!kind) {
+        promptFeedback.className = 'prompt-feedback';
+        promptFeedback.innerHTML = '';
+        return;
+      }
+      promptFeedback.className = `prompt-feedback show ${kind}`;
+      promptFeedback.innerHTML = html;
+    }
+
+    // ================= Step 0: data sources (summary only) =================
+    async function loadSources() {
+      try {
+        const res = await fetch('/api/mart/sources');
+        const data = await res.json();
+        document.getElementById('sources-grain').textContent =
+          data.funnel || `Every mart lands at this grain: ${data.grain}.`;
+        document.getElementById('sources-grid').innerHTML = data.sources.map(s => `
+          <div class="source-item">
+            <span class="kind-pill ${s.kind}">${s.kind === 'measures' ? 'You choose which' : 'Always included'}</span>
+            <div class="name">${escapeHtml(s.name)}</div>
+            <div class="detail">${escapeHtml(s.detail)}</div>
+            ${s.volume ? `<div class="source-volume">${escapeHtml(s.volume)}</div>` : ''}
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('sources-grain').textContent = 'Could not load data sources — is the Flask API running?';
+      }
+    }
+
+    // Read-only browsable catalog: expand a topic to see its measures. Each
+    // measure has an explicit "+ Add to plan" button — so nothing lands in
+    // Step 2 unless you deliberately click it (no surprise auto-population).
+    function renderCatalogAccordion() {
+      const container = document.getElementById('catalog-accordion');
+      if (!container || !Object.keys(CATALOG_TOPICS).length) return;
+      const topics = Object.keys(CATALOG_TOPICS).sort();
+      const current = new Set(currentMeasureIds());
+
+      container.innerHTML = topics.map(t => {
+        const items = CATALOG_TOPICS[t];
+        const rows = items.map(m => {
+          return `<div class="cat-measure">
+            <span>${escapeHtml(m.label)}</span>
+            <button class="cat-add" data-id="${m.id}" data-label="${escapeHtml(m.label)}">+ Add to description</button>
+          </div>`;
+        }).join('');
+        return `<div class="cat-topic" data-topic="${escapeHtml(t)}">
+          <div class="cat-topic-head">
+            <span>${escapeHtml(t)}<span class="count">${items.length}</span></span>
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="cat-topic-body">${rows}</div>
+        </div>`;
+      }).join('');
+
+      // expand/collapse
+      container.querySelectorAll('.cat-topic-head').forEach(head => {
+        head.addEventListener('click', () => head.closest('.cat-topic').classList.toggle('open'));
+      });
+      // "Add to description" — feeds Step 1, does NOT touch Step 2. Step 1 stays
+      // the single entry point; you still Plan from there.
+      container.querySelectorAll('.cat-add').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          appendToDescription(btn.dataset.label);
+          const original = btn.textContent;
+          btn.textContent = '✓ Added';
+          setTimeout(() => { btn.textContent = original; }, 1200);
+        });
+      });
+    }
+
+    // Append a measure label to the Step 1 description box (comma-joined, deduped),
+    // then focus it so the user can keep composing their request.
+    function appendToDescription(label) {
+      const cur = promptInput.value.trim();
+      if (cur.toLowerCase().includes(label.toLowerCase())) {
+        promptInput.focus();
+        return;
+      }
+      promptInput.value = cur ? `${cur}, ${label}` : label;
+      promptInput.focus();
+      promptInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // ================= Catalog + measure chips =================
+    function currentMeasureIds() {
+      return Array.from(measureChips.querySelectorAll('.mchip[data-id]')).map(c => c.dataset.id);
+    }
+
+    function addMeasureChip(id, label) {
+      if (currentMeasureIds().includes(id)) return;
+      const chip = document.createElement('span');
+      chip.className = 'mchip' + (String(id).startsWith('ext::') ? ' ext' : '');
+      chip.dataset.id = id;
+      chip.innerHTML = `${escapeHtml(label)} <span class="x">&times;</span>`;
+      addChip.insertAdjacentElement('beforebegin', chip);
+      refreshHeadlineOptions();
+      syncPlanState();
+    }
+
+    function setMeasureChips(measures) {
+      measureChips.querySelectorAll('.mchip:not(.add)').forEach(c => c.remove());
+      measures.forEach(m => addMeasureChip(m.id, m.label));
+    }
+
+    measureChips.addEventListener('click', (e) => {
+      const x = e.target.closest('.x');
+      if (!x) return;
+      x.closest('.mchip').remove();
+      refreshHeadlineOptions();
+      syncPlanState();
+      if (typeof renderOnboarded === 'function') renderOnboarded();
+    });
+
+    async function loadCatalog() {
+      try {
+        const res = await fetch('/api/mart/catalog');
+        const data = await res.json();
+        CATALOG_TOPICS = data.topics;
+        CATALOG_DEFAULTS = data.defaults;
+        LABEL_BY_ID = {};
+        Object.values(CATALOG_TOPICS).flat().forEach(m => { LABEL_BY_ID[m.id] = m.label; });
+        buildMeasurePicker();
+        buildSuggestions();
+        renderCatalogAccordion();
+        // Start with NO measures — Step 2 shows its empty state until you plan
+        // or add one. No fake pre-seeded "plan".
+        syncPlanState();
+      } catch (e) {
+        document.getElementById('examples-row').innerHTML =
+          '<span class="chip-ex">Could not load the measure catalog.</span>';
+      }
+    }
+
+    // ---------- add-measure popover, real catalog, filterable ----------
+    function buildMeasurePicker() {
+      const picker = document.getElementById('measure-picker');
+      const menu = document.getElementById('measure-picker-menu');
+
+      function render(filter) {
+        const f = (filter || '').toLowerCase();
+        const current = new Set(currentMeasureIds());
+        let html = '<input type="text" id="measure-filter" placeholder="Search measures…" autocomplete="off">';
+        let any = false;
+        for (const [topic, items] of Object.entries(CATALOG_TOPICS)) {
+          const matches = items.filter(m => !f || m.label.toLowerCase().includes(f) || topic.toLowerCase().includes(f));
+          if (!matches.length) continue;
+          any = true;
+          html += `<div class="measure-picker-topic">${escapeHtml(topic)}</div>`;
+          matches.forEach(m => {
+            const added = current.has(m.id);
+            html += `<button type="button" class="measure-picker-item${added ? ' already-added' : ''}" data-id="${m.id}" data-label="${escapeHtml(m.label)}" ${added ? 'disabled' : ''}>${added ? '✓ ' : ''}${escapeHtml(m.label)}</button>`;
+          });
+        }
+        if (!any) html += '<div class="measure-picker-empty">No measures match your search.</div>';
+        menu.innerHTML = html;
+
+        const filterInput = document.getElementById('measure-filter');
+        filterInput.value = filter || '';
+        filterInput.addEventListener('input', () => render(filterInput.value));
+        filterInput.addEventListener('click', (e) => e.stopPropagation());
+        setTimeout(() => filterInput.focus(), 0);
+
+        menu.querySelectorAll('.measure-picker-item:not(.already-added)').forEach(btn => {
+          btn.addEventListener('click', () => {
+            addMeasureChip(btn.dataset.id, btn.dataset.label);
+            picker.classList.remove('open');
+          });
+        });
+      }
+
+      addChip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.dropdown-wrap.open').forEach(w => w.classList.remove('open'));
+        picker.classList.toggle('open');
+        if (picker.classList.contains('open')) render('');
+      });
+
+      // position the popover under the chip row
+      picker.style.display = 'inline-block';
+    }
+
+    // ---------- dynamic "Headline metric" options (must be one of current measures) ----------
+    function refreshHeadlineOptions() {
+      const wrap = document.getElementById('headline-dropdown');
+      const menu = wrap.querySelector('.dropdown-menu');
+      const valueEl = wrap.querySelector('.dropdown-value');
+      const chips = Array.from(measureChips.querySelectorAll('.mchip[data-id]'));
+
+      menu.innerHTML = chips.map(c =>
+        `<button type="button" data-id="${c.dataset.id}">${c.textContent.replace('×', '').trim()}</button>`
+      ).join('') || '<div class="measure-picker-empty">Add a measure first.</div>';
+
+      const stillValid = chips.some(c => c.dataset.id === wrap.dataset.selectedId);
+      if (!stillValid && chips.length) {
+        wrap.dataset.selectedId = chips[0].dataset.id;
+        valueEl.textContent = chips[0].textContent.replace('×', '').trim();
+      } else if (!chips.length) {
+        wrap.dataset.selectedId = '';
+        valueEl.textContent = '—';
+      }
+
+      menu.querySelectorAll('button[data-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          wrap.dataset.selectedId = btn.dataset.id;
+          valueEl.textContent = btn.textContent;
+          wrap.classList.remove('open');
+        });
+      });
+    }
+
+    document.querySelector('#headline-dropdown .selectish').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wrap = document.getElementById('headline-dropdown');
+      document.querySelectorAll('.dropdown-wrap.open, .measure-picker.open').forEach(w => { if (w !== wrap) w.classList.remove('open'); });
+      wrap.classList.toggle('open');
+    });
+
+    // ---------- audience dropdown (fixed enum, label::value pairs) ----------
+    function setupAudienceDropdown() {
+      const wrap = document.getElementById('audience-dropdown');
+      const pairs = wrap.getAttribute('data-options').split('|').map(p => p.split('::'));
+      const menu = wrap.querySelector('.dropdown-menu');
+      const valueEl = wrap.querySelector('.dropdown-value');
+      wrap.dataset.selectedValue = 'payer';
+
+      menu.innerHTML = pairs.map(([label, value]) => `<button type="button" data-value="${value}">${escapeHtml(label)}</button>`).join('');
+
+      wrap.querySelector('.selectish').addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.dropdown-wrap.open, .measure-picker.open').forEach(w => { if (w !== wrap) w.classList.remove('open'); });
+        wrap.classList.toggle('open');
+      });
+
+      menu.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          valueEl.textContent = btn.textContent;
+          wrap.dataset.selectedValue = btn.dataset.value;
+          wrap.classList.remove('open');
+        });
+      });
+    }
+    setupAudienceDropdown();
+
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown-wrap.open, .measure-picker.open').forEach(w => w.classList.remove('open'));
+    });
+
+    // ---------- mart title syncs plan header live ----------
+    titleInput.addEventListener('input', () => {
+      const has = currentMeasureIds().length > 0;
+      planTitle.textContent = titleInput.value.trim() || (has ? 'Untitled mart' : 'No plan yet');
+    });
+
+    // ---------- suggestion chips, templated from the REAL catalog (not free text) ----------
+    // The chip's visible text IS the exact string that gets filled in on click —
+    // no more showing a short label but filling a different, longer sentence.
+    function buildSuggestions() {
+      const all = Object.entries(CATALOG_TOPICS).flatMap(([topic, items]) => items.map(m => ({...m, topic})));
+      if (!all.length) return;
+      const templates = [
+        m => `How does ${m.label.toLowerCase()} vary by state, and how does it relate to Medicare spend?`,
+        m => `Rank states by ${m.label.toLowerCase()} for a policy audience.`,
+        m => `Where is ${m.label.toLowerCase()} highest, and is spend keeping up?`,
+      ];
+      const picks = [];
+      const pool = [...all];
+      for (let i = 0; i < 3 && pool.length; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        picks.push(pool.splice(idx, 1)[0]);
+      }
+      document.getElementById('examples-row').innerHTML = picks.map((m, i) => {
+        const sentence = templates[i % templates.length](m);
+        return `<span class="chip-ex" data-fill="${escapeHtml(sentence)}">"${escapeHtml(sentence)}"</span>`;
+      }).join('');
+      document.querySelectorAll('.chip-ex').forEach(chip => {
+        chip.addEventListener('click', () => {
+          promptInput.value = chip.getAttribute('data-fill');
+          promptInput.focus();
+        });
+      });
+    }
+
+    // ================= Plan the mart (real call) =================
+    // At least one real word (letters/digits) — blank, whitespace, or
+    // punctuation-only doesn't count.
+    function promptHasWord() {
+      return promptInput.value.trim().split(/\s+/).some(w => /[a-z0-9]/i.test(w));
+    }
+
+    function nudgePrompt() {
+      promptInput.focus();
+      promptInput.style.borderColor = 'var(--hp-danger)';
+      setTimeout(() => { promptInput.style.borderColor = ''; }, 900);
+    }
+
+    // Enter runs Plan; Shift+Enter inserts a newline. Won't fire while a plan
+    // is already in flight or when the box has no real word.
+    promptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (planBtn.disabled) return;
+        if (!promptHasWord()) { nudgePrompt(); return; }
+        planBtn.click();
+      }
+    });
+
+    planBtn.addEventListener('click', async () => {
+      if (!promptHasWord()) {
+        nudgePrompt();
+        return;
+      }
+      // Snapshot the exact question at plan time — the Step 1 box stays editable,
+      // so this is the only reliable record of what produced the plan.
+      const submittedPrompt = promptInput.value.trim();
+
+      planBtn.disabled = true;
+      const label = planBtn.querySelector('.btn-label');
+      const originalLabel = label.textContent;
+      label.textContent = 'Planning…';
+      planIcon.classList.add('icon-spin');
+      setPromptFeedback('working', 'Asking the AI planner to pick measures — <b>gemini-3.1-flash-lite</b> (cloud), falling back to the local model if it\'s unavailable…');
+
+      try {
+        const res = await fetch('/api/mart/plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: submittedPrompt }),
+        });
+        const data = await res.json();
+
+        if (!data.possible) {
+          // Nothing matched → honest rejection at Step 1, next to the box you
+          // typed in. Step 2 is untouched (empty), so no contradiction.
+          candidates.classList.remove('show');
+          LAST_PLAN = null;
+          PENDING_CAVEAT = null;
+          PLANNED_PROMPT = '';
+          setPromptFeedback('error', escapeHtml(data.message || 'Not possible with the current data sources.'));
+        } else {
+          // Matched → DON'T jump to Step 2. Show the candidates here in Step 1
+          // and let the user choose. Step 2 only fills in on "Continue".
+          LAST_PLAN = data;
+          PLANNED_PROMPT = submittedPrompt;
+          setPromptFeedback(null);
+          renderCandidates(data);
+          candidates.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } catch (e) {
+        candidates.classList.remove('show');
+        setPromptFeedback('error', 'Could not reach the planning API — is the Flask server running?');
+      }
+
+      planBtn.disabled = false;
+      label.textContent = originalLabel;
+      planIcon.classList.remove('icon-spin');
+    });
+
+    const FOCUS_LABELS = {
+      payer: 'A payer — cost, ROI, risk',
+      clinical: 'A clinician — outcomes, access',
+      policy: 'A policymaker — equity, investment gaps',
+      general: 'An executive — headline summary',
+    };
+
+    // Render the matched measures as toggle chips in Step 1 for the user to
+    // choose from — the "these can be built, pick the ones you want" step.
+    function renderCandidates(data) {
+      const modelName = data.provider === 'gemini' ? 'gemini-3.1-flash-lite'
+        : data.provider === 'ollama' ? 'gemma3:4b'
+        : data.provider;
+      const provenance = data.provider === 'gemini'
+        ? '<span class="cloud-pill">cloud</span>'
+        : data.used_fallback
+          ? '<span class="local-pill">keyword match</span>'
+          : '<span class="local-pill">local</span>';
+      candidatesProv.innerHTML = `via <b>${escapeHtml(modelName)}</b> ${provenance}<br>${data.latency_s.toFixed(1)}s`;
+
+      // Honest limitation banner when the question over-reaches the data grain.
+      // Remembered in PENDING_CAVEAT so it survives into the built results too.
+      PENDING_CAVEAT = data.caveat || null;
+      if (data.caveat) {
+        candidatesCaveat.textContent = data.caveat;
+        candidatesCaveat.classList.add('show');
+      } else {
+        candidatesCaveat.textContent = '';
+        candidatesCaveat.classList.remove('show');
+      }
+
+      const exts = data.external_suggestions || [];
+      exts.forEach(e => { CAND_EXTERNALS[e.id] = e; });
+      const total = data.measures.length + exts.length;
+      document.getElementById('candidates-sub').textContent = total === 1
+        ? 'I matched one measure to your description. Confirm it, or go back and refine your request.'
+        : `I matched ${total} measures to your description${exts.length ? ` (including ${exts.length} from your onboarded data)` : ''}. Deselect any you didn't mean, then continue.`;
+
+      const tick = '<span class="tick"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>';
+      const cdiChips = data.measures.map(m =>
+        `<span class="cand-chip" data-id="${m.id}" data-label="${escapeHtml(m.label)}">${tick}${escapeHtml(m.label)}</span>`
+      ).join('');
+      const extChips = exts.map(e =>
+        `<span class="cand-chip ext" data-id="${escapeHtml(e.id)}" data-label="${escapeHtml(e.label)}" title="from ${escapeHtml(e.dataset_name || e.table)}">${tick}${escapeHtml(e.label)}</span>`
+      ).join('');
+      candidatesChips.innerHTML = cdiChips + extChips;
+
+      candidatesChips.querySelectorAll('.cand-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          chip.classList.toggle('off');
+          updateCandidateHint();
+        });
+      });
+
+      candidates.classList.add('show');
+      updateCandidateHint();
+    }
+
+    function selectedCandidateIds() {
+      return Array.from(candidatesChips.querySelectorAll('.cand-chip:not(.off)')).map(c => c.dataset.id);
+    }
+
+    function updateCandidateHint() {
+      const n = selectedCandidateIds().length;
+      continueBtn.disabled = n === 0;
+      candidatesHint.textContent = n === 0
+        ? 'Select at least one measure to continue.'
+        : `${n} measure${n > 1 ? 's' : ''} selected.`;
+    }
+
+    // Continue → commit the chosen measures into Step 2 for final review + build.
+    continueBtn.addEventListener('click', () => {
+      if (!LAST_PLAN) return;
+      const chosen = selectedCandidateIds();
+      if (!chosen.length) return;
+
+      // Split CDC picks from onboarded (external) picks; preserve any external
+      // measures already added manually so planning MERGES rather than wipes them.
+      const cdi = chosen.filter(id => !id.startsWith('ext::'));
+      const extChosen = chosen.filter(id => id.startsWith('ext::'));
+      const existingExt = currentMeasureIds().filter(id => id.startsWith('ext::'));
+
+      setMeasureChips(cdi.map(id => ({ id, label: LABEL_BY_ID[id] || id })));
+      [...new Set([...existingExt, ...extChosen])].forEach(id => {
+        const spec = EXTERNAL_SPECS[id] || CAND_EXTERNALS[id];
+        if (!spec) return;
+        EXTERNAL_SPECS[id] = spec;
+        LABEL_BY_ID[id] = spec.label;
+        addMeasureChip(id, spec.label);
+      });
+
+      titleInput.value = LAST_PLAN.title || '';
+      planTitle.textContent = LAST_PLAN.title || 'Untitled mart';
+
+      // Headline metric: keep the AI's pick if it survived selection, else the first chosen.
+      const allChosen = currentMeasureIds();
+      const primary = allChosen.includes(LAST_PLAN.primary_measure) ? LAST_PLAN.primary_measure : allChosen[0];
+      const headlineWrap = document.getElementById('headline-dropdown');
+      headlineWrap.dataset.selectedId = primary;
+      headlineWrap.querySelector('.dropdown-value').textContent = LABEL_BY_ID[primary] || primary;
+
+      const audienceWrap = document.getElementById('audience-dropdown');
+      audienceWrap.dataset.selectedValue = LAST_PLAN.narrative_focus;
+      audienceWrap.querySelector('.dropdown-value').textContent = FOCUS_LABELS[LAST_PLAN.narrative_focus] || LAST_PLAN.narrative_focus;
+
+      plannerStatus.className = 'planner-line';
+      if (LAST_PLAN.provider === 'none') {
+        plannerStatus.innerHTML = 'Assembled from your onboarded data · edit anything above, then build.';
+      } else {
+        const modelName = LAST_PLAN.provider === 'gemini' ? 'gemini-3.1-flash-lite'
+          : LAST_PLAN.provider === 'ollama' ? 'gemma3:4b' : LAST_PLAN.provider;
+        plannerStatus.innerHTML = `Planned by <b>${escapeHtml(modelName)}</b> · ${(LAST_PLAN.latency_s || 0).toFixed(1)}s · edit anything above, then build.`;
+      }
+
+      candidates.classList.remove('show');
+      setPromptFeedback('ok', 'Loaded into Step 2 below — review and build.');
+
+      // Pin the originating question + carry the honesty note into Step 2 review.
+      setPlanFrom('plan-from', PLANNED_PROMPT);
+      const planCaveat = document.getElementById('plan-caveat');
+      if (PENDING_CAVEAT) {
+        planCaveat.textContent = PENDING_CAVEAT;
+        planCaveat.classList.add('show');
+      } else {
+        planCaveat.textContent = '';
+        planCaveat.classList.remove('show');
+      }
+
+      syncPlanState();
+      if (typeof renderOnboarded === 'function') renderOnboarded();
+      planSection.classList.add('just-updated');
+      setTimeout(() => planSection.classList.remove('just-updated'), 700);
+      planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // ---------- Discard: clear the plan and return to the empty state ----------
+    discardBtn.addEventListener('click', () => {
+      setMeasureChips([]);          // removes all measure chips
+      titleInput.value = '';
+      promptInput.value = '';
+      plannerStatus.className = 'planner-line pending';
+      plannerStatus.textContent = 'Review the measures above, then build.';
+      setPromptFeedback(null);
+      candidates.classList.remove('show');
+      LAST_PLAN = null;
+      PENDING_CAVEAT = null;
+      PLANNED_PROMPT = '';
+      EXTERNAL_SPECS = {}; CAND_EXTERNALS = {};
+      document.getElementById('results-caveat').classList.remove('show');
+      document.getElementById('plan-caveat').classList.remove('show');
+      setPlanFrom('plan-from', '');
+      setPlanFrom('results-from', '');
+      syncPlanState();
+      promptInput.focus();
+    });
+
+    // Plain-language descriptor for a correlation coefficient.
+    function describeCorr(r) {
+      if (r == null) return 'no data';
+      const a = Math.abs(r);
+      const strength = a >= 0.6 ? 'strong' : a >= 0.3 ? 'moderate' : 'weak';
+      const dir = r >= 0 ? 'together' : 'inversely';
+      return `${strength}, moving ${dir}`;
+    }
+
+    // Friendly model label for a provider key.
+    function modelLabel(provider) {
+      return provider === 'gemini' ? 'gemini-3.1-flash-lite'
+        : provider === 'ollama' ? 'gemma3:4b'
+        : (provider || 'built-in');
+    }
+
+    // Header, KPI cards, caveats, ask/CTA — everything around the dynamic
+    // component grid. Reads entirely from the build/open payload (data), so it
+    // works identically for a fresh build and a reopened stored mart.
+    function renderCommon(data) {
+      const title = data.title || 'Untitled mart';
+      viewingTitle.textContent = title;
+      lastBuilt.textContent = 'just now';
+      document.getElementById('stat-states').textContent = data.states_covered;
+
+      // Pin the originating question + carry the honesty caveat into the results.
+      setPlanFrom('results-from', data.prompt || '');
+      const rc = document.getElementById('results-caveat');
+      if (data.caveat) { rc.textContent = data.caveat; rc.classList.add('show'); }
+      else { rc.textContent = ''; rc.classList.remove('show'); }
+
+      const facts = data.facts || {};
+      const topSpend = (facts.top3_spend || [])[0];
+      document.getElementById('stat-spend').textContent = topSpend
+        ? `${topSpend.state_abbr} · $${Math.round(topSpend.medicare_spend_per_capita)}` : '—';
+
+      renderComponents(data);
+      renderFollowups(data);
+
+      // Reveal + wire the ask card to THIS mart's table.
+      const askCard = document.getElementById('ask-card');
+      askCard.style.display = 'block';
+      askCard.dataset.table = data.table_name || '';
+
+      const cta = document.getElementById('loaded-cta');
+      if (data.table_name) {
+        document.getElementById('cta-sub').innerHTML =
+          `It's now the DuckDB table <code>${escapeHtml(data.table_name)}</code> (${data.states_covered} rows). Query it directly, or ask it in plain language.`;
+        cta.style.display = 'block';
+      } else {
+        cta.style.display = 'none';
+      }
+
+      statsGrid.classList.add('just-updated');
+      componentsEl.classList.add('just-updated');
+      setTimeout(() => {
+        statsGrid.classList.remove('just-updated');
+        componentsEl.classList.remove('just-updated');
+      }, 700);
+    }
+
+    // ================= Dynamic Explore components =================
+    // The AI director chose an ordered list of components; render each by type.
+    function renderComponents(data) {
+      const comps = data.components || [];
+      const director = data.director || {};
+      const intro = document.getElementById('explore-intro');
+      const hint = document.getElementById('explore-hint');
+      if (comps.length) {
+        if (hint) hint.style.display = 'none';   // mart built — drop the "build in Step 2" hint
+        intro.style.display = 'block';
+        intro.innerHTML = director.used_fallback
+          ? `The AI director was unavailable, so a built-in layout picked these ${comps.length} components.`
+          : `<b>${escapeHtml(modelLabel(director.provider))}</b> (cloud) chose these ${comps.length} components for this specific mart · ${(director.latency_s || 0).toFixed(1)}s. The value-based analysis is written locally.`;
+      } else {
+        if (hint) hint.style.display = 'block';
+        intro.style.display = 'none';
+      }
+      componentsEl.innerHTML = comps.length
+        ? comps.map(c => renderComponentCard(c, data, director)).join('')
+        : '<div class="components-empty"><div class="scatter-empty-icon">📊</div><div>No components were generated for this mart.</div></div>';
+    }
+
+    function provChip(kind, label) {
+      const pill = kind === 'cloud' ? 'cloud-pill' : 'local-pill';
+      return `<div class="comp-prov"><span class="${pill}">${escapeHtml(label)}</span></div>`;
+    }
+
+    function chartProv(director) {
+      return director.used_fallback
+        ? '<div class="comp-prov">chart chosen by a built-in layout · computed locally</div>'
+        : `<div class="comp-prov">chart chosen by <span class="cloud-pill">${escapeHtml(modelLabel(director.provider))}</span> · computed locally</div>`;
+    }
+
+    function renderComponentCard(c, data, director) {
+      const d = c.data || {};
+      let body = '';
+      let title = c.title || '';
+
+      if (c.type === 'briefing') {
+        title = title || 'AI briefing';
+        body = `<div class="eyebrow">${escapeHtml((data.narrative_focus || 'analysis'))} briefing</div>
+          <div class="sec-title" style="font-size:18px; margin:4px 0 10px;">${escapeHtml(title)}</div>
+          <div class="brief-body">${renderBriefingMarkdown(d.text, title)}</div>
+          ${provChip('local', 'narrated by ' + (d.generated_by || 'local model'))}`;
+      } else if (c.type === 'key_findings') {
+        title = title || 'Key findings';
+        const items = (d.items || []);
+        const lis = items.length ? items.map(t => `<li>${escapeHtml(t)}</li>`).join('') : '<li>No findings computed.</li>';
+        const gen = d.generated_by || 'computed from the mart';
+        body = `<div class="eyebrow">Key findings</div>
+          <div class="sec-title" style="font-size:16px; margin:6px 0 10px;">${escapeHtml(title)}</div>
+          <ul class="findings">${lis}</ul>
+          ${provChip('local', gen.indexOf('computed') === 0 ? gen : 'written by ' + gen)}`;
+      } else if (c.type === 'scatter') {
+        title = title || 'Burden vs investment, by state';
+        body = `<div class="sec-title">${escapeHtml(title)}</div>
+          <p class="sec-sub" style="margin-top:-2px;">${escapeHtml(scatterCaption(data))}</p>
+          <div class="comp-scatter">${scatterSVG(d, data.mode)}
+            <div class="legend">
+              <span><i style="background:#059669"></i>Above-median burden</span>
+              <span><i style="background:#0284C7"></i>Below-median burden</span>
+              <span><i style="background:#ECFDF5;border:1px solid #A7F3D0"></i>Watch quadrant</span>
+            </div>
+          </div>${chartProv(director)}`;
+      } else if (c.type === 'ranking_bar' || c.type === 'spend_ranking') {
+        title = title || d.subtitle || 'Ranking';
+        body = `<div class="eyebrow">Ranking</div>
+          <div class="sec-title" style="font-size:16px; margin:6px 0 12px;">${escapeHtml(title)}</div>
+          ${barsHTML(d)}${chartProv(director)}`;
+      } else if (c.type === 'distribution') {
+        title = title || 'Distribution across states';
+        body = `<div class="eyebrow">Distribution</div>
+          <div class="sec-title" style="font-size:16px; margin:6px 0 12px;">${escapeHtml(title)}</div>
+          ${distHTML(d)}${chartProv(director)}`;
+      } else if (c.type === 'top_states') {
+        title = title || (d.caption || 'Top states');
+        body = `<div class="eyebrow">Top states</div>
+          <div class="sec-title" style="font-size:16px; margin:6px 0 10px;">${escapeHtml(title)}</div>
+          ${(d.rows || []).map(r => `<div class="comp-row"><span class="co">${escapeHtml(r.name)}</span><span class="mv">${r.value}${escapeHtml(r.unit || '')}</span></div>`).join('')}
+          ${chartProv(director)}`;
+      } else if (c.type === 'anomalies') {
+        title = title || 'Breaks the pattern';
+        body = `<div class="eyebrow">Worth a look</div>
+          <div class="sec-title" style="font-size:16px; margin:6px 0 10px;">${escapeHtml(title)}</div>
+          ${(d.rows || []).map(r => `<div class="comp-row"><span class="co">${escapeHtml(r.name)}</span><span class="mv note">${escapeHtml(r.note)}</span></div>`).join('')}
+          ${chartProv(director)}`;
+      } else if (c.type === 'pairwise') {
+        title = title || 'How the measures relate';
+        body = `<div class="eyebrow">Correlation</div>
+          <div class="sec-title" style="font-size:16px; margin:6px 0 10px;">${escapeHtml(title)}</div>
+          ${(d.pairs || []).map(p => `<div class="comp-row"><span class="co">${escapeHtml(p.a)}<span class="rel">&harr;</span>${escapeHtml(p.b)}</span><span class="mv" title="${describeCorr(p.r)}">r ${p.r}</span></div>`).join('')}
+          ${chartProv(director)}`;
+      } else {
+        return '';
+      }
+      return `<section class="card component">${body}</section>`;
+    }
+
+    // Scatter caption that names THIS mart's measures, so the (intentionally
+    // constant) burden-vs-spend axes clearly reflect the current build.
+    function scatterCaption(data) {
+      const labels = data.measure_labels || [];
+      if (data.mode === 'composite' && labels.length) {
+        return `Each dot is a state · X = combined burden of ${labels.join(' + ')} (0–100 index) · Y = Medicare spend per capita. Bottom-right = high burden but lower spend.`;
+      }
+      return `Each dot is a state · X = ${data.measure_label || 'measure'} prevalence · Y = Medicare spend per capita. Bottom-right = high burden but lower spend.`;
+    }
+
+    // Horizontal ranking bars from a component's rows.
+    function barsHTML(d) {
+      const rows = d.rows || [];
+      if (!rows.length) return '<p class="sec-sub">No data to rank.</p>';
+      const maxV = Math.max(...rows.map(r => r.value)) || 1;
+      const unit = d.unit || '';
+      const prefix = d.prefix ? unit : '';
+      const suffix = d.prefix ? '' : unit;
+      return rows.map(r => {
+        const pct = Math.max(4, (r.value / maxV) * 100);
+        const sky = r.hi === false ? ' sky' : '';
+        return `<div class="bar-row">
+          <span class="bar-state" title="${escapeHtml(r.s)}">${escapeHtml(r.name)}</span>
+          <div class="bar-track"><div class="bar-fill${sky}" style="width:${pct.toFixed(0)}%"></div></div>
+          <span class="bar-val">${prefix}${r.value}${suffix}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Histogram (spread of the headline measure across states).
+    function distHTML(d) {
+      const bins = d.bins || [];
+      if (!bins.length) return '<p class="sec-sub">Not enough data to chart a distribution.</p>';
+      const maxC = d.max_count || 1;
+      const unit = d.unit || '';
+      return bins.map(b => {
+        const pct = maxC ? Math.max(2, (b.count / maxC) * 100) : 2;
+        return `<div class="dist-row">
+          <span class="dist-label">${b.lo}${unit}–${b.hi}${unit}</span>
+          <div class="dist-track"><div class="dist-fill" style="width:${pct.toFixed(0)}%"></div></div>
+          <span class="dist-count"><b>${b.count}</b> state${b.count === 1 ? '' : 's'}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Draw the REAL per-state scatter from the build payload. Maps data
+    // coordinates into the SVG plot area, shades the high-burden/low-spend
+    // "watch quadrant", and labels the few most extreme states.
+    function scatterSVG(scatter, mode) {
+      if (!scatter || !Array.isArray(scatter.points) || scatter.points.length < 2) {
+        return '<p class="sec-sub">Not enough states with both values to plot.</p>';
+      }
+      const pts = scatter.points;
+      const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+      let xmin = Math.min(...xs), xmax = Math.max(...xs);
+      let ymin = Math.min(...ys), ymax = Math.max(...ys);
+      const xlo = xmin, xhi = xmax, ylo = ymin, yhi = ymax; // real data bounds for ticks
+      const xpad = (xmax - xmin || 1) * 0.10, ypad = (ymax - ymin || 1) * 0.10;
+      xmin -= xpad; xmax += xpad; ymin -= ypad; ymax += ypad;
+
+      // Plot area inside the 640x320 viewBox (room for axis-value ticks).
+      const X0 = 64, X1 = 620, Y0 = 268, Y1 = 20;
+      const sx = x => X0 + (x - xmin) / (xmax - xmin) * (X1 - X0);
+      const sy = y => Y0 - (y - ymin) / (ymax - ymin) * (Y0 - Y1);
+      const pxmed = sx(scatter.x_median), pymed = sy(scatter.y_median);
+      const fmtX = v => (mode === 'composite' ? Math.round(v) : (Math.round(v * 10) / 10));
+
+      // Label the 4 highest-burden + 2 highest-spend states.
+      const labelSet = new Set([
+        ...[...pts].sort((a, b) => b.x - a.x).slice(0, 4).map(p => p.s),
+        ...[...pts].sort((a, b) => b.y - a.y).slice(0, 2).map(p => p.s),
+      ]);
+
+      let svg = '';
+      // watch quadrant shading (high burden, lower spend = bottom-right)
+      svg += `<rect x="${pxmed.toFixed(1)}" y="${pymed.toFixed(1)}" width="${(X1 - pxmed).toFixed(1)}" height="${(Y0 - pymed).toFixed(1)}" fill="#ECFDF5"/>`;
+      // axes
+      svg += `<line x1="${X0}" y1="${Y1}" x2="${X0}" y2="${Y0}" stroke="#CBD5E1"/>`;
+      svg += `<line x1="${X0}" y1="${Y0}" x2="${X1}" y2="${Y0}" stroke="#CBD5E1"/>`;
+      // median guide lines
+      svg += `<line x1="${pxmed.toFixed(1)}" y1="${Y1}" x2="${pxmed.toFixed(1)}" y2="${Y0}" stroke="#E2E8F0" stroke-dasharray="4 4"/>`;
+      svg += `<line x1="${X0}" y1="${pymed.toFixed(1)}" x2="${X1}" y2="${pymed.toFixed(1)}" stroke="#E2E8F0" stroke-dasharray="4 4"/>`;
+      // axis value ticks (min · median · max)
+      svg += `<text x="${X0}" y="${Y0 + 16}" font-size="9.5" fill="#94A3B8" text-anchor="start">${fmtX(xlo)}</text>`;
+      svg += `<text x="${pxmed.toFixed(1)}" y="${Y0 + 16}" font-size="9.5" fill="#94A3B8" text-anchor="middle">med ${fmtX(scatter.x_median)}</text>`;
+      svg += `<text x="${X1}" y="${Y0 + 16}" font-size="9.5" fill="#94A3B8" text-anchor="end">${fmtX(xhi)}</text>`;
+      svg += `<text x="${X0 - 6}" y="${Y0 + 3}" font-size="9.5" fill="#94A3B8" text-anchor="end">$${Math.round(ylo)}</text>`;
+      svg += `<text x="${X0 - 6}" y="${(pymed + 3).toFixed(1)}" font-size="9.5" fill="#94A3B8" text-anchor="end">$${Math.round(scatter.y_median)}</text>`;
+      svg += `<text x="${X0 - 6}" y="${Y1 + 8}" font-size="9.5" fill="#94A3B8" text-anchor="end">$${Math.round(yhi)}</text>`;
+      // quadrant label
+      svg += `<text x="${(pxmed + 8).toFixed(1)}" y="${(Y0 - 8).toFixed(1)}" font-size="10" fill="#059669" font-weight="700" style="letter-spacing:.05em">HIGH BURDEN · LOWER SPEND</text>`;
+
+      for (const p of pts) {
+        const cx = sx(p.x), cy = sy(p.y);
+        const color = p.hi ? '#059669' : '#0284C7';
+        const labeled = labelSet.has(p.s);
+        svg += `<circle class="dot" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${labeled ? 7 : 5.5}" fill="${color}"><title>${escapeHtml(stateName(p.s))} — burden ${p.x}, spend $${Math.round(p.y)}</title></circle>`;
+        if (labeled) {
+          svg += `<text x="${(cx + 9).toFixed(1)}" y="${(cy + 4).toFixed(1)}" font-size="10" fill="#0F172A" font-weight="700">${escapeHtml(p.s)}</text>`;
+        }
+      }
+      svg += `<text x="${((X0 + X1) / 2).toFixed(0)}" y="308" font-size="11" fill="#64748B" text-anchor="middle">${escapeHtml(scatter.x_label || 'Burden')} &rarr;</text>`;
+      svg += `<text x="16" y="${((Y0 + Y1) / 2).toFixed(0)}" font-size="11" fill="#64748B" transform="rotate(-90 16 ${((Y0 + Y1) / 2).toFixed(0)})" text-anchor="middle">${escapeHtml(scatter.y_label || 'Spend')} &rarr;</text>`;
+
+      return `<svg class="chart" viewBox="0 0 640 320" role="img" aria-label="Scatter of burden versus Medicare spend by state">${svg}</svg>`;
+    }
+
+    // ----- Suggested follow-ups → prefill + run the inline "Ask this mart" -----
+    function renderFollowups(data) {
+      const el = document.getElementById('ask-followups');
+      const measure = data.measure_label || 'the measure';
+      const qs = data.mode === 'composite'
+        ? [
+            'Which 5 states have the highest burden but the lowest Medicare spend?',
+            'List the states above the median on every measure.',
+            'Show the 8 states with the highest Medicare spend per capita.',
+          ]
+        : [
+            `Which 5 states have the highest ${measure} but the lowest Medicare spend?`,
+            `Rank the 10 states with the highest ${measure}.`,
+            'Show the 8 states with the highest Medicare spend per capita.',
+          ];
+      el.innerHTML = qs.map(q => `<span class="chip-ex" data-q="${escapeHtml(q)}">${escapeHtml(q)}</span>`).join('');
+      el.querySelectorAll('.chip-ex').forEach(chip => {
+        chip.addEventListener('click', () => {
+          document.getElementById('ask-input').value = chip.getAttribute('data-q');
+          askMart();
+        });
+      });
+    }
+
+    // ----- Ask this mart: NL → SQL → run → answer, all against the built table -----
+    async function askMart() {
+      const input = document.getElementById('ask-input');
+      const q = input.value.trim();
+      if (!q) { input.focus(); return; }
+      const btn = document.getElementById('ask-btn');
+      const lbl = btn.querySelector('.btn-label');
+      const resultEl = document.getElementById('ask-result');
+      btn.disabled = true;
+      lbl.innerHTML = '<span class="spinner"></span>';
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = '<div class="ask-narration">Writing SQL and running it…</div>';
+
+      try {
+        const table = document.getElementById('ask-card').dataset.table || 'reporting_state_health';
+        const res = await fetch('/api/mart/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q, table }),
+        });
+        const data = await res.json();
+
+        if (data.error || !data.valid) {
+          resultEl.innerHTML =
+            `<div class="ask-error">${escapeHtml(data.message || 'Couldn\'t answer that one — try rephrasing (read-only SELECTs only).')}</div>` +
+            (data.sql ? `<div class="ask-sql" style="margin-top:10px;">${escapeHtml(data.sql)}</div>` : '');
+        } else {
+          let html = '';
+          if (data.narration) html += `<div class="ask-narration">${escapeHtml(data.narration)}</div>`;
+          if (data.sql) html += `<div class="ask-sql">${escapeHtml(data.sql)}</div>`;
+          if (data.columns && data.columns.length) {
+            const head = data.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+            const body = data.rows.map(r =>
+              `<tr>${data.columns.map(c => `<td>${escapeHtml(String(r[c] ?? ''))}</td>`).join('')}</tr>`
+            ).join('');
+            html += `<div class="ask-table-wrap"><table class="data-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+            html += `<p class="sec-sub" style="margin-top:8px;">${data.row_count} row${data.row_count === 1 ? '' : 's'} · answered by <b>${escapeHtml(data.provider)}</b> · ${(data.latency_s || 0).toFixed(1)}s</p>`;
+          }
+          resultEl.innerHTML = html || '<div class="ask-narration">No rows returned.</div>';
+        }
+      } catch (e) {
+        resultEl.innerHTML = '<div class="ask-error">Could not reach the query API — is the Flask server running?</div>';
+      }
+
+      btn.disabled = false;
+      lbl.textContent = 'Ask';
+    }
+
+    // Entry point for a built OR reopened mart. Fills the KPI cards (mode-aware),
+    // then renderCommon() handles the header, caveats and dynamic components.
+    function renderResults(data) {
+      renderCommon(data);
+
+      if (data.mode === 'composite' && data.composite) {
+        const c = data.composite;
+        const top = c.composite_top[0];
+        document.getElementById('stat-measure-label').textContent = 'Top combined burden';
+        document.getElementById('stat-measure').textContent = top ? `${top.state_abbr} · ${top.burden_index}` : '—';
+        document.getElementById('stat-measure-foot').textContent = `0–100 index across ${c.measures.length} measures`;
+        document.getElementById('stat-corr').textContent = c.corr_composite_spend != null ? `r = ${c.corr_composite_spend}` : '—';
+        document.getElementById('stat-corr-foot').textContent = `${c.multi_hotspots.length} multi-burden hotspot states`;
+      } else {
+        const facts = data.facts || {};
+        const topMeasure = (facts.top3_measure || [])[0];
+        document.getElementById('stat-measure-label').textContent = `Top · ${data.measure_label}`;
+        document.getElementById('stat-measure').textContent = topMeasure ? `${topMeasure.state_abbr} · ${topMeasure[data.measure_col]}%` : '—';
+        document.getElementById('stat-measure-foot').textContent = 'crude prevalence, adults';
+        document.getElementById('stat-corr').textContent = facts.corr_measure_spend != null ? `r = ${facts.corr_measure_spend}` : '—';
+        document.getElementById('stat-corr-foot').textContent = `${facts.quadrant_count || 0} states in watch quadrant`;
+      }
+
+      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Trim a long CDC label to something that fits the narrow drill column.
+    function shortLabel(label) {
+      const l = String(label);
+      return l.length > 24 ? l.slice(0, 22) + '…' : l;
+    }
+
+    // ================= Build this mart (real call) =================
+    buildBtn.addEventListener('click', async () => {
+      const measures = currentMeasureIds();
+      if (!measures.length) {
+        plannerStatus.className = 'planner-line rejected';
+        plannerStatus.textContent = 'Add at least one measure before building.';
+        return;
+      }
+      const headlineWrap = document.getElementById('headline-dropdown');
+      const primary = headlineWrap.dataset.selectedId || measures[0];
+      const focus = document.getElementById('audience-dropdown').dataset.selectedValue || 'payer';
+      const title = titleInput.value.trim() || 'Untitled mart';
+
+      buildBtn.disabled = true;
+      const label = buildBtn.querySelector('.btn-label');
+      const originalLabel = label.textContent;
+      buildIcon.classList.add('icon-spin');
+
+      const stages = [
+        'Pulling cached source data…',
+        'Computing state-level facts…',
+        'AI director is choosing the best views…',
+        'Writing the local AI analysis — can take up to 30s…',
+      ];
+      let stageIdx = 0;
+      label.textContent = stages[0];
+      const stageTimer = setInterval(() => {
+        stageIdx = Math.min(stageIdx + 1, stages.length - 1);
+        label.textContent = stages[stageIdx];
+      }, 4000);
+
+      try {
+        const res = await fetch('/api/mart/build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            measures, primary_measure: primary, narrative_focus: focus, title,
+            prompt: PLANNED_PROMPT, caveat: PENDING_CAVEAT,
+            external_measures: measures.filter(m => m.startsWith('ext::')).map(id => EXTERNAL_SPECS[id]).filter(Boolean),
+          }),
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          showToast(data.message || 'Build failed', 'error');
+        } else {
+          renderResults(data);
+          loadMyMarts();   // refresh the gallery so the new mart appears
+          showToast(`Mart built — ${data.states_covered} states covered`, 'success');
+        }
+      } catch (e) {
+        showToast('Could not reach the build API — is the Flask server running?', 'error');
+      }
+
+      clearInterval(stageTimer);
+      buildBtn.disabled = false;
+      label.textContent = originalLabel;
+      buildIcon.classList.remove('icon-spin');
+    });
+
+    // Ask-this-mart controls
+    document.getElementById('ask-btn').addEventListener('click', askMart);
+    document.getElementById('ask-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); askMart(); }
+    });
+
+    // ================= My marts (persistent gallery) =================
+    let MYMARTS = [];
+    let MM_EXPANDED = false, MM_Q = '', MM_SORT = 'new';
+    const MM_TOP = 3;
+
+    async function loadMyMarts() {
+      try {
+        const res = await fetch('/api/mart/list');
+        const data = await res.json();
+        MYMARTS = data.marts || [];
+      } catch (e) { MYMARTS = []; }
+      renderMyMarts();
+    }
+
+    function visibleMarts() {
+      let list = MYMARTS.slice();
+      if (MM_Q) list = list.filter(m =>
+        `${m.title || ''} ${m.prompt || ''} ${(m.measure_labels || []).join(' ')}`.toLowerCase().includes(MM_Q));
+      const s = MM_SORT;
+      list.sort((a, b) => {
+        if (s === 'new') return String(b.built_at || '').localeCompare(String(a.built_at || ''));
+        if (s === 'old') return String(a.built_at || '').localeCompare(String(b.built_at || ''));
+        if (s === 'name') return String(a.title || '').localeCompare(String(b.title || ''));
+        if (s === 'type') return (b.mode === 'composite' ? 1 : 0) - (a.mode === 'composite' ? 1 : 0);
+        return 0;
+      });
+      return list;
+    }
+
+    function renderMyMarts() {
+      const card = document.getElementById('mymarts-card');
+      const grid = document.getElementById('mymarts-grid');
+      const showAll = document.getElementById('mymarts-showall');
+      const controls = document.getElementById('mymarts-controls');
+      const empty = document.getElementById('mymarts-empty');
+      if (!MYMARTS.length) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      // Show search + sort only when there's more than one mart to organize.
+      controls.style.display = MYMARTS.length > 1 ? 'flex' : 'none';
+      const all = visibleMarts();
+      if (!all.length) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        empty.textContent = `No marts match “${MM_Q}”.`;
+        showAll.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      const shown = (MM_Q || MM_EXPANDED) ? all : all.slice(0, MM_TOP);
+      grid.innerHTML = shown.map(m => {
+        let when = '';
+        try { when = m.built_at ? new Date(m.built_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''; } catch (e) {}
+        const labels = (m.measure_labels || []).slice(0, 3).map(l => shortLabel(l)).join(', ');
+        return `<div class="mymart">
+          <div class="mm-title">${escapeHtml(m.title || 'Untitled mart')}</div>
+          <div class="mm-badges">
+            <span class="mm-pill mode">${m.mode === 'composite' ? 'combined' : 'single'}</span>
+            <span class="mm-pill">${m.states_covered || 51} states</span>
+            ${when ? `<span class="mm-pill">${escapeHtml(when)}</span>` : ''}
+          </div>
+          <div class="mm-meta">${escapeHtml(labels)}</div>
+          ${m.prompt ? `<div class="mm-meta">“${escapeHtml(m.prompt)}”</div>` : ''}
+          <button class="mm-open" data-table="${escapeHtml(m.table_name)}">Open &rarr;</button>
+        </div>`;
+      }).join('');
+      grid.querySelectorAll('.mm-open').forEach(b =>
+        b.addEventListener('click', () => openMart(b.dataset.table)));
+      // Show-all only when not searching and there's more than the top slice.
+      if (!MM_Q && all.length > MM_TOP) {
+        showAll.style.display = 'inline-flex';
+        showAll.textContent = MM_EXPANDED ? 'Show less' : `Show all ${all.length}`;
+      } else {
+        showAll.style.display = 'none';
+      }
+    }
+    document.getElementById('mymarts-showall').addEventListener('click', () => {
+      MM_EXPANDED = !MM_EXPANDED; renderMyMarts();
+    });
+    document.getElementById('mymarts-search').addEventListener('input', (e) => {
+      MM_Q = (e.target.value || '').trim().toLowerCase(); MM_EXPANDED = false; renderMyMarts();
+    });
+    document.getElementById('mymarts-sort').addEventListener('change', (e) => {
+      MM_SORT = e.target.value; renderMyMarts();
+    });
+
+    async function openMart(table) {
+      try {
+        const res = await fetch('/api/mart/open?table=' + encodeURIComponent(table));
+        const data = await res.json();
+        if (data.error) { showToast(data.message || 'Could not open that mart', 'error'); return; }
+        // Restore the pinned question + caveat so subsequent edits behave.
+        PLANNED_PROMPT = data.prompt || '';
+        PENDING_CAVEAT = data.caveat || null;
+        renderResults(data);
+        showToast('Reopened “' + (data.title || 'mart') + '”', 'success');
+      } catch (e) { showToast('Could not reach the API — is the server running?', 'error'); }
+    }
+
+    // ================= Reset (clear everything, back to top) =================
+    function resetAll() {
+      setMeasureChips([]);
+      titleInput.value = '';
+      promptInput.value = '';
+      plannerStatus.className = 'planner-line pending';
+      plannerStatus.textContent = 'Review the measures above, then build.';
+      setPromptFeedback(null);
+      candidates.classList.remove('show');
+      LAST_PLAN = null; PENDING_CAVEAT = null; PLANNED_PROMPT = ''; EXTERNAL_SPECS = {}; CAND_EXTERNALS = {};
+      document.getElementById('plan-caveat').classList.remove('show');
+      document.getElementById('results-caveat').classList.remove('show');
+      setPlanFrom('plan-from', '');
+      setPlanFrom('results-from', '');
+      componentsEl.innerHTML = '<div class="components-empty"><div class="scatter-empty-icon">📊</div><div>Build a mart and the AI will choose the charts and insights that fit it.</div></div>';
+      document.getElementById('explore-intro').style.display = 'none';
+      { const h = document.getElementById('explore-hint'); if (h) h.style.display = 'block'; }
+      document.getElementById('ask-card').style.display = 'none';
+      document.getElementById('loaded-cta').style.display = 'none';
+      document.getElementById('ask-result').style.display = 'none';
+      ['stat-states', 'stat-spend', 'stat-measure', 'stat-corr'].forEach(id => { document.getElementById(id).textContent = '—'; });
+      document.getElementById('viewing-title').textContent = '—';
+      document.getElementById('last-built').textContent = '—';
+      syncPlanState();
+      if (typeof renderOnboarded === 'function') renderOnboarded();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    resetBtn.addEventListener('click', resetAll);
+
+    // How-to-use accordion
+    const howToggle = document.getElementById('how-toggle');
+    howToggle.addEventListener('click', () => {
+      const open = document.getElementById('how-body').classList.toggle('open');
+      howToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    // ============ Onboarded data — pre-analyzed at onboard time ============
+    let ONB_PROFILES = [];
+    let ONB_EXPANDED = false;
+    const ONB_TOP = 4;
+
+    async function loadOnboarded() {
+      try {
+        const res = await fetch('/api/mart/onboarded_profiles');
+        const data = await res.json();
+        ONB_PROFILES = data.sources || [];
+      } catch (e) { ONB_PROFILES = []; }
+      renderOnboarded();
+    }
+
+    function renderOnboarded() {
+      const card = document.getElementById('onboarded-card');
+      const list = document.getElementById('onb-list');
+      const none = document.getElementById('onb-none');
+      const showAll = document.getElementById('onb-showall');
+      if (!ONB_PROFILES.length) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+
+      const usable = ONB_PROFILES.filter(p => p.relevant && (p.metrics || []).length);
+      const other = ONB_PROFILES.length - usable.length;
+      const added = new Set(currentMeasureIds());
+      const shown = ONB_EXPANDED ? usable : usable.slice(0, ONB_TOP);
+
+      list.innerHTML = shown.map(p => {
+        const metrics = (p.metrics || []).map(m => {
+          const agg = m.aggregation || 'mean';
+          const id = `ext::${p.table}::${m.column}::${agg}`;
+          const isAdded = added.has(id);
+          return `<button class="onb-metric-add" data-id="${id}" data-table="${escapeHtml(p.table)}" data-col="${escapeHtml(m.column)}" data-agg="${escapeHtml(agg)}" data-sc="${escapeHtml(p.state_col || '')}" ${isAdded ? 'disabled' : ''}>${isAdded ? '✓ ' : '+ '}${escapeHtml(prettyCol(m.column))}</button>`;
+        }).join('');
+        return `<div class="onb-row">
+          <div class="onb-row-head">
+            <div>
+              <div class="onb-name">${escapeHtml(p.dataset_name || p.table)}</div>
+              <div class="onb-stats">${p.n_states} states · ${p.n_rows} rows · ${p.n_fields} fields · pre-analyzed on-device</div>
+            </div>
+            <span class="onb-badge">Ready to add</span>
+          </div>
+          <div class="onb-metrics">${metrics}</div>
+        </div>`;
+      }).join('');
+
+      list.querySelectorAll('.onb-metric-add').forEach(b => b.addEventListener('click', () => {
+        addExternalMeasure({
+          id: b.dataset.id, table: b.dataset.table, column: b.dataset.col,
+          aggregation: b.dataset.agg, state_col: b.dataset.sc, label: prettyCol(b.dataset.col),
+        });
+        renderOnboarded();  // reflect the "✓ Added" state
+      }));
+
+      showAll.style.display = usable.length > ONB_TOP ? 'inline-flex' : 'none';
+      showAll.textContent = ONB_EXPANDED ? 'Show less' : `Show all ${usable.length}`;
+
+      if (!usable.length) {
+        none.style.display = 'block';
+        none.textContent = other
+          ? `None of your ${other} onboarded dataset${other === 1 ? '' : 's'} are state-level, so none can be added to this mart yet.`
+          : 'No onboarded datasets fit this state-level mart yet.';
+      } else if (other) {
+        none.style.display = 'block';
+        none.textContent = `${other} other onboarded dataset${other === 1 ? " isn't" : "s aren't"} state-level and can't be added here.`;
+      } else {
+        none.style.display = 'none';
+      }
+    }
+    document.getElementById('onb-showall').addEventListener('click', () => { ONB_EXPANDED = !ONB_EXPANDED; renderOnboarded(); });
+
+    // Prettify a raw column name for a measure label (depression_rate_pct → "Depression rate pct").
+    function prettyCol(c) {
+      const s = String(c).replace(/_/g, ' ').trim();
+      return s ? s.charAt(0).toUpperCase() + s.slice(1) : c;
+    }
+
+    // Add an approved onboarded metric to the plan as a measure chip (it will be
+    // joined on state at build time and folded into the burden index).
+    function addExternalMeasure(spec) {
+      if (currentMeasureIds().includes(spec.id)) {
+        if (typeof showToast === 'function') showToast('Already in your plan', 'info');
+        return;
+      }
+      EXTERNAL_SPECS[spec.id] = spec;
+      LABEL_BY_ID[spec.id] = spec.label;
+      addMeasureChip(spec.id, spec.label);
+      if (typeof showToast === 'function') showToast(`Added “${spec.label}” — build to include it`, 'success');
+      document.getElementById('plan-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      planSection.classList.add('just-updated');
+      setTimeout(() => planSection.classList.remove('just-updated'), 700);
+    }
+
+    loadSources();
+    loadCatalog();
+    loadMyMarts();
+    loadOnboarded();
+  </script>
+</body>
+</html>

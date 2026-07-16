@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — HealthPipe AI</title>
+  <link rel="icon" type="image/svg+xml" href="/static/healthpipe_logo.svg">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <style>
+    @keyframes icon-spin { to { transform: rotate(360deg); } }
+    .icon-spin { animation: icon-spin 0.9s linear infinite; }
+
+    /* Responsive stats + main split */
+    @media (max-width: 940px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 540px) { .stats { grid-template-columns: 1fr; } }
+    /* Two widget cards side-by-side above the full-width runs table */
+    .widgets-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; align-items: start; }
+    @media (max-width: 760px) { .widgets-row { grid-template-columns: 1fr; } }
+    .runs-section { margin-top: 16px; }
+
+    /* ---------- Section header row (title + action) ---------- */
+    .sec-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .sec-head .btn.ghost { background: var(--hp-bg); border: 1px solid var(--hp-border); color: var(--hp-text-secondary); transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+    .sec-head .btn.ghost:hover { background: var(--hp-primary-soft); border-color: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .sec-head .btn.ghost.active { background: var(--hp-primary-soft); border-color: var(--hp-primary-100); color: var(--hp-primary-dark); }
+
+    /* ---------- Run history table ---------- */
+    .runs-wrap { margin-top: 14px; border: 1px solid var(--hp-border); border-radius: 18px; overflow: hidden; }
+    /* Fixed layout: the Dataset column (col 1) flexes and truncates if tight;
+       every other column gets a fixed width sized to fit its header + content,
+       so the delete action (col 6) always has room and the page never scrolls. */
+    table.runs { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+    table.runs th:nth-child(2), table.runs td:nth-child(2) { width: 58px; }
+    table.runs th:nth-child(3), table.runs td:nth-child(3) { width: 78px; }
+    table.runs th:nth-child(4), table.runs td:nth-child(4) { width: 72px; }
+    table.runs th:nth-child(5), table.runs td:nth-child(5) { width: 112px; }
+    table.runs thead th {
+      background: var(--hp-bg); text-align: left; padding: 11px 16px; font-size: 10.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--hp-text-secondary); white-space: nowrap;
+    }
+    table.runs td:first-child { overflow: hidden; }
+    table.runs .r-ds, table.runs .r-src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    table.runs tbody td { padding: 13px 16px; border-top: 1px solid var(--hp-border); vertical-align: middle; }
+    table.runs tbody tr { cursor: pointer; transition: background 0.15s ease; }
+    table.runs tbody tr:hover { background: var(--hp-bg); }
+    table.runs tbody tr.selected { background: var(--hp-primary-soft); }
+    table.runs tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--hp-primary); }
+    .r-ds { font-weight: 700; color: var(--hp-text-primary); }
+    .r-src { font-size: 11.5px; color: var(--hp-text-tertiary); }
+    .r-num { font-family: var(--font-family-display); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--hp-text-primary); }
+    .r-flow { color: var(--hp-text-secondary); font-size: 12px; }
+    .r-date { color: var(--hp-text-secondary); font-size: 12px; white-space: nowrap; }
+    .blocked-tag { font-size: 10px; font-weight: 700; color: var(--hp-danger); border: 1px solid #FECACA; background: #FEF2F2; border-radius: 999px; padding: 2px 8px; }
+
+    /* Delete: same quiet row-action pattern as the Onboard screen — full
+       opacity + red only on row hover/focus so the table stays calm. */
+    table.runs th.r-actions-h, table.runs td.r-actions { width: 52px; padding-left: 8px; padding-right: 20px; }
+    .run-delete-btn {
+      width: 30px; height: 30px; display: grid; place-items: center;
+      background: none; border: none; padding: 0; color: var(--hp-text-tertiary); cursor: pointer;
+      border-radius: 999px; opacity: 0.45;
+      transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+    }
+    table.runs tbody tr:hover .run-delete-btn,
+    .run-delete-btn:focus-visible { opacity: 1; }
+    .run-delete-btn:hover { background: #FEE2E2; color: var(--hp-danger); opacity: 1; }
+    .run-delete-btn:focus-visible { outline: 2px solid var(--hp-danger); outline-offset: 2px; }
+    .run-delete-btn:disabled { opacity: 0.15; pointer-events: none; }
+    @media (hover: none) { .run-delete-btn { opacity: 0.7; } }
+
+    /* ---------- Table controls (search + sort) + show-more ---------- */
+    .tbl-controls { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+    .mini-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 12px; padding: 8px 12px; color: var(--hp-text-tertiary); transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+    .mini-search:focus-within { border-color: var(--hp-primary); box-shadow: 0 0 0 3px var(--hp-primary-soft); color: var(--hp-primary); }
+    .mini-search input { border: none; background: none; outline: none; font: inherit; font-size: 13px; color: var(--hp-text-primary); width: 100%; }
+    .mini-search svg { flex-shrink: 0; }
+    .mini-sort { padding: 8px 12px; font-size: 13px; border: 1px solid var(--hp-border); border-radius: 12px; font-family: inherit; background: var(--hp-surface); color: var(--hp-text-primary); cursor: pointer; }
+    .mini-sort:focus { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px var(--hp-primary-soft); }
+    .show-more {
+      display: block; margin: 14px auto 2px; cursor: pointer;
+      background: var(--hp-bg); border: 1px solid var(--hp-border); color: var(--hp-text-secondary);
+      font-weight: 600; padding: 9px 18px; border-radius: 12px;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .show-more:hover { background: var(--hp-primary-soft); border-color: var(--hp-primary-100); color: var(--hp-primary-dark); box-shadow: 0 2px 6px -2px rgba(5,150,105,0.18); }
+    .show-more:active { transform: translateY(1px); }
+    .show-more:focus-visible { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px var(--hp-primary-soft); }
+
+    /* Grade badge */
+    .gb { font-family: var(--font-family-display); font-weight: 700; font-size: 11.5px; padding: 4px 11px; border-radius: 999px; white-space: nowrap; display: inline-block; }
+    .gb.A { background: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .gb.B { background: var(--hp-primary-soft); color: var(--hp-primary-dark); }
+    .gb.C { background: var(--hp-secondary-100); color: var(--hp-secondary-dark); }
+    .gb.D { background: #FEF3C7; color: #92400E; }
+    .gb.F { background: #FEE2E2; color: #991B1B; }
+    .gb.x { background: var(--hp-bg); color: var(--hp-text-tertiary); border: 1px solid var(--hp-border); }
+
+    /* ---------- Compare bar + drift ---------- */
+    .cmp-bar { display: none; margin-top: 14px; padding: 14px 16px; border: 1px dashed var(--hp-border); border-radius: 16px; background: var(--hp-bg); gap: 10px; align-items: end; flex-wrap: wrap; }
+    .cmp-bar.open { display: flex; }
+    .cmp-fld { display: flex; flex-direction: column; gap: 5px; }
+    .cmp-fld label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--hp-text-secondary); }
+    .cmp-fld select { padding: 8px 10px; font-size: 12.5px; border: 1px solid var(--hp-border); border-radius: 10px; font-family: inherit; background: var(--hp-surface); min-width: 200px; }
+    .drift { margin-top: 14px; display: none; }
+    .drift.open { display: block; }
+    .drift-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .drift-chip { font-size: 12px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--hp-border); background: var(--hp-bg); color: var(--hp-text-secondary); }
+    .drift-chip b { font-family: var(--font-family-display); color: var(--hp-text-primary); }
+    .drift-chip.up { background: #FEF3C7; border-color: #FDE68A; color: #92400E; }
+    .drift-chip.ok { background: var(--hp-primary-soft); border-color: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .drift-block { margin-top: 8px; font-size: 13px; }
+    .drift-block h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--hp-text-secondary); margin: 10px 0 6px; }
+    .drift-col { display: inline-block; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; padding: 3px 9px; border-radius: 8px; margin: 0 5px 5px 0; }
+    .drift-col.add { background: var(--hp-primary-soft); color: var(--hp-primary-dark); }
+    .drift-col.rem { background: #FEE2E2; color: #991B1B; }
+    .drift-col.chg { background: #FEF3C7; color: #92400E; }
+
+    /* ---------- Side widgets ---------- */
+    .side-card { margin-bottom: 16px; }
+    .grade-bars { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+    .grade-row { display: grid; grid-template-columns: 74px 1fr 28px; gap: 10px; align-items: center; font-size: 12.5px; }
+    .grade-row .glbl { display: flex; align-items: center; gap: 7px; color: var(--hp-text-secondary); }
+    .grade-track { height: 8px; border-radius: 999px; background: var(--hp-bg); overflow: hidden; }
+    .grade-fill { height: 100%; border-radius: 999px; background: var(--hp-primary); }
+    .grade-fill.sky { background: var(--hp-secondary); }
+    .grade-fill.amber { background: #D97706; }
+    .grade-fill.red { background: var(--hp-danger); }
+    .grade-cnt { font-family: var(--font-family-display); font-weight: 700; text-align: right; color: var(--hp-text-primary); font-variant-numeric: tabular-nums; }
+
+    .receipt {
+      position: relative; overflow: hidden; padding: 20px 22px; border-radius: 28px;
+      background: var(--hp-secondary-dark); border: 1px solid var(--hp-secondary-dark); color: #fff;
+    }
+    .receipt .ghost { position: absolute; right: -10px; bottom: -18px; font-size: 96px; opacity: 0.09; line-height: 1; pointer-events: none; }
+    .receipt .r-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #BAE6FD; }
+    .receipt .r-title { font-family: var(--font-family-display); font-weight: 700; font-size: 16px; margin: 6px 0 8px; }
+    .receipt .r-body { font-size: 12.5px; line-height: 1.55; color: #E0F2FE; }
+    .receipt .r-body b { color: #fff; }
+
+    /* ---------- Run detail card ---------- */
+    .detail-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .detail-head .r-num { font-size: 14px; }
+    .detail-sub { font-size: 12.5px; color: var(--hp-text-secondary); }
+    .detail-tabs { display: inline-flex; gap: 4px; margin-top: 16px; padding: 4px; background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 14px; flex-wrap: wrap; }
+    .dtab { border: none; background: none; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--hp-text-secondary); padding: 7px 14px; border-radius: 10px; cursor: pointer; transition: all 0.15s ease; }
+    .dtab:hover { color: var(--hp-text-primary); }
+    .dtab.active { background: var(--hp-surface); color: var(--hp-primary-dark); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+    .dtab .cnt { font-size: 10.5px; opacity: 0.7; }
+    .detail-pane { margin-top: 16px; display: none; }
+    .detail-pane.active { display: block; }
+    .pane-empty { color: var(--hp-text-secondary); font-size: 13px; padding: 10px 0; }
+
+    /* Quality (mirrors onboard) */
+    .dq-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .dq-score { font-family: var(--font-family-display); font-weight: 700; font-size: 22px; color: var(--hp-text-primary); }
+    .dq-score small { font-size: 12px; font-weight: 500; color: var(--hp-text-tertiary); }
+    .dq-summary { font-size: 12.5px; color: var(--hp-text-secondary); margin-left: auto; }
+    .dq-summary b { color: var(--hp-text-primary); }
+    .dq-dims { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 14px; }
+    .dq-dim { border: 1px solid var(--hp-border); border-radius: 12px; padding: 10px 12px; background: var(--hp-bg); }
+    .dq-dim.warn { border-color: #FDE68A; background: #FFFBEB; }
+    .dq-dim .dqd-label { font-size: 11px; font-weight: 700; color: var(--hp-text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+    .dq-dim .dqd-val { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-family: var(--font-family-display); font-weight: 700; font-size: 14px; color: var(--hp-text-primary); }
+    .dq-dim .dqd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hp-primary); }
+    .dq-dim.warn .dqd-dot { background: #D97706; }
+    .dq-checks { margin-top: 14px; border-top: 1px solid var(--hp-border); padding-top: 12px; }
+    .dq-checks-title { font-size: 11px; font-weight: 700; color: var(--hp-text-secondary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 8px; }
+    .dq-check { display: grid; grid-template-columns: 14px 1fr; gap: 9px; align-items: start; padding: 5px 0; font-size: 12.5px; color: var(--hp-text-secondary); line-height: 1.45; }
+    .dq-check .dqc-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+    .dq-check.pass .dqc-dot { background: var(--hp-primary); }
+    .dq-check.fail .dqc-dot { background: var(--hp-danger); }
+    .dq-check.fail { color: var(--hp-text-primary); }
+    .dq-toggle { margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--hp-secondary); background: none; border: none; cursor: pointer; padding: 0; }
+    .dq-toggle:hover { text-decoration: underline; }
+
+    /* Issues (triage) */
+    .issue { border: 1px solid var(--hp-border); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; background: var(--hp-surface); }
+    .issue-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .sev-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .sev-dot.fail { background: var(--hp-danger); }
+    .sev-dot.warn { background: #D97706; }
+    .sev-dot.info { background: var(--hp-secondary); }
+    .sev-lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .sev-lbl.fail { color: var(--hp-danger); }
+    .sev-lbl.warn { color: #92400E; }
+    .sev-lbl.info { color: var(--hp-secondary-dark); }
+    .issue-title { font-weight: 700; color: var(--hp-text-primary); font-size: 13.5px; }
+    .issue-col { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 8px; padding: 2px 8px; color: var(--hp-text-secondary); }
+    .issue-detail { font-size: 12.5px; color: var(--hp-text-secondary); margin-top: 8px; line-height: 1.5; }
+    .issue-explain { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hp-border); }
+    .issue-explain .ie-text { font-size: 13px; line-height: 1.6; color: #334155; }
+    .issue-explain .ie-text b { color: var(--hp-text-primary); }
+    .issue-fix { margin-top: 10px; background: var(--hp-primary-dark); color: #D1FAE5; border-radius: 12px; padding: 12px 14px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; }
+    .issue-by { margin-top: 8px; font-size: 11px; color: var(--hp-text-tertiary); }
+    .explain-btn { margin-top: 12px; }
+
+    /* Lineage timeline */
+    .lin-flow { display: flex; flex-direction: column; gap: 0; padding: 6px 0; }
+    .lin-step { display: grid; grid-template-columns: 40px 1fr; gap: 14px; }
+    .lin-track { display: flex; flex-direction: column; align-items: center; }
+    .lin-dot {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 11px; font-weight: 700; letter-spacing: -0.01em;
+    }
+    .lin-step.source .lin-dot, .lin-step.table .lin-dot, .lin-step.mart .lin-dot {
+      background: var(--hp-primary-soft); border: 2px solid var(--hp-primary); color: var(--hp-primary);
+    }
+    .lin-step.transform .lin-dot {
+      background: var(--hp-bg); border: 2px solid var(--hp-border); color: var(--hp-text-secondary);
+    }
+    .lin-stem { flex: 1; width: 2px; background: var(--hp-border); margin: 3px 0; min-height: 14px; }
+    .lin-step:last-child .lin-stem { display: none; }
+    .lin-card {
+      border: 1px solid var(--hp-border); border-radius: 14px; padding: 11px 15px;
+      background: var(--hp-surface); margin-bottom: 10px;
+    }
+    .lin-step.source .lin-card, .lin-step.table .lin-card, .lin-step.mart .lin-card {
+      background: var(--hp-primary-soft); border-color: var(--hp-primary-100);
+    }
+    .lin-kind { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--hp-text-secondary); }
+    .lin-step.source .lin-kind, .lin-step.table .lin-kind, .lin-step.mart .lin-kind { color: var(--hp-primary); }
+    .lin-title { font-weight: 700; font-size: 13px; color: var(--hp-text-primary); margin-top: 3px; overflow-wrap: anywhere; }
+    .lin-detail { font-size: 12px; color: var(--hp-text-secondary); margin-top: 3px; line-height: 1.45; }
+
+    /* Briefing */
+    .brief-text { font-size: 13.5px; line-height: 1.65; color: #334155; }
+    .brief-text p { margin: 0 0 10px; }
+    .brief-text b { color: var(--hp-text-primary); }
+    .dict { margin-top: 14px; border-top: 1px solid var(--hp-border); padding-top: 12px; }
+    .dict-row { display: grid; grid-template-columns: 170px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--hp-border); font-size: 12.5px; }
+    .dict-row:last-child { border-bottom: none; }
+    .dict-row code { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; color: var(--hp-primary-dark); font-weight: 700; overflow-wrap: anywhere; }
+    .dict-row span { color: var(--hp-text-secondary); line-height: 1.5; }
+    @media (max-width: 640px) { .dict-row { grid-template-columns: 1fr; gap: 2px; } }
+
+    /* Audit */
+    .proof {
+      display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px; border-radius: 20px; margin-top: 14px;
+      background: var(--hp-primary-soft); border: 1px solid var(--hp-primary-100); color: var(--hp-primary-dark);
+      font-size: 13.5px; line-height: 1.55;
+    }
+    .proof svg { flex-shrink: 0; margin-top: 1px; }
+    .proof b { font-weight: 700; }
+    .audit-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; }
+    @media (max-width: 720px) { .audit-metrics { grid-template-columns: repeat(2, 1fr); } }
+    .am { border: 1px solid var(--hp-border); border-radius: 16px; padding: 14px 16px; background: var(--hp-bg); }
+    .am .am-lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--hp-text-secondary); }
+    .am .am-val { font-family: var(--font-family-display); font-weight: 700; font-size: 22px; color: var(--hp-text-primary); margin-top: 5px; font-variant-numeric: tabular-nums; }
+    .audit-wrap { margin-top: 16px; border: 1px solid var(--hp-border); border-radius: 18px; overflow: hidden; overflow-x: auto; }
+    table.audit { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 640px; }
+    table.audit thead th { background: var(--hp-bg); text-align: left; padding: 10px 14px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--hp-text-secondary); white-space: nowrap; }
+    table.audit tbody td { padding: 10px 14px; border-top: 1px solid var(--hp-border); white-space: nowrap; }
+    .prov { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+    .prov.cloud { background: var(--hp-secondary-100); color: var(--hp-secondary-dark); }
+    .prov.local { background: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .ok-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--hp-primary); }
+    .ok-dot.no { background: var(--hp-danger); }
+    .mono { font-family: 'SF Mono', Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+    .loading { color: var(--hp-text-secondary); font-size: 13px; display: flex; align-items: center; gap: 9px; padding: 8px 0; }
+    .ld-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--hp-secondary); animation: ps-pulse 1s infinite; }
+    @keyframes ps-pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+    .empty-note { color: var(--hp-text-secondary); font-size: 13.5px; padding: 20px 0; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="mark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 5 4-12 2 7h6"/></svg>
+        </div>
+        <div>
+          <div class="name">HealthPipe&nbsp;AI</div>
+          <div class="sb-credit">Built by <strong>Kaustav Purkayastha</strong></div>
+        </div>
+      </div>
+      <a class="navlink active" href="/pages/dashboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Dashboard</a>
+      <a class="navlink" href="/pages/onboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h10v8H4z"/><path d="M18 12h2v8h-2z"/></svg>Onboard data</a>
+      <a class="navlink" href="/pages/mart.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>US States Health Mart</a>
+      <a class="navlink" href="/pages/chat.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Ask the data</a>
+      <a class="navlink" href="/pages/sql.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>SQL console</a>
+      <div class="sb-spacer"></div>
+      <div class="model-panel" id="model-panel" style="display:none;">
+        <div class="mp-label">AI models</div>
+        <div class="mp-list" id="mp-list"></div>
+        <div class="mp-modes" id="mp-modes">
+          <button class="mp-mode" data-mode="hybrid"><span class="mp-mode-title">Cloud + on-device</span></button>
+          <button class="mp-mode" data-mode="local_only"><span class="mp-mode-title">On-device only</span></button>
+        </div>
+        <div class="mp-help" id="mp-help"></div>
+      </div>
+      <div class="verified">
+        <div class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div><b>Private by design</b><br><span>Data stays on this device</span></div>
+      </div>
+      <a class="logout" href="#logout">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Log out</a>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="page-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
+          </div>
+          <div class="title-wrap">
+            <h1>Dashboard</h1>
+            <p class="sub">Quality, run history, triage, lineage and the privacy audit — all on this device</p>
+          </div>
+        </div>
+        <div class="right">
+          <button class="avatar-btn" aria-label="Signed in as KP" title="Signed in">
+            <span class="avatar">KP</span>
+            <span class="avatar-status" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- STATS -->
+        <div class="stats" id="stats">
+          <div class="stat bento"><div class="circle"></div><div class="lbl">Data rows sent to cloud</div><div class="val">—</div><div class="foot2">loading…</div></div>
+          <div class="stat"><div class="lbl">Datasets loaded</div><div class="val">—</div><div class="foot2"></div></div>
+          <div class="stat"><div class="lbl">Pipeline runs</div><div class="val">—</div><div class="foot2"></div></div>
+          <div class="stat"><div class="lbl">Avg quality</div><div class="val">—</div><div class="foot2"></div></div>
+        </div>
+
+        <!-- Widget cards: Grade distribution + Privacy receipt side by side -->
+        <div class="widgets-row">
+          <section class="card">
+            <div class="eyebrow">Quality</div>
+            <div class="sec-title">Grade distribution</div>
+            <div class="grade-bars" id="grade-bars">
+              <div class="loading"><span class="ld-dot"></span> Loading…</div>
+            </div>
+          </section>
+          <section class="receipt" id="receipt">
+            <div class="ghost">🛡️</div>
+            <div class="r-eyebrow">Privacy receipt</div>
+            <div class="r-title">Nothing left this machine</div>
+            <div class="r-body" id="receipt-body">Loading the audit…</div>
+          </section>
+        </div>
+
+        <!-- Pipeline runs: full width -->
+        <section class="card runs-section">
+          <div class="sec-head">
+            <div>
+              <div class="eyebrow">History</div>
+              <div class="sec-title">Pipeline runs</div>
+              <p class="sec-sub">Every load, newest first. Click a run to inspect its quality, issues and lineage below.</p>
+            </div>
+            <button class="btn ghost" id="cmp-toggle" type="button">Compare runs</button>
+          </div>
+
+          <div class="tbl-controls">
+            <label class="mini-search">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+              <input type="text" id="runs-search" placeholder="Search by dataset, source or grade…" autocomplete="off">
+            </label>
+            <select class="mini-sort" id="runs-sort" aria-label="Sort runs">
+              <option value="new">Newest first</option>
+              <option value="old">Oldest first</option>
+              <option value="grade">Best grade</option>
+              <option value="rows">Most rows</option>
+              <option value="name">Dataset A–Z</option>
+            </select>
+          </div>
+
+          <div class="cmp-bar" id="cmp-bar">
+            <div class="cmp-fld"><label>Run A (before)</label><select id="cmp-a"></select></div>
+            <div class="cmp-fld"><label>Run B (after)</label><select id="cmp-b"></select></div>
+            <button class="btn" id="cmp-run" type="button">Compare</button>
+          </div>
+          <div class="drift" id="drift"></div>
+
+          <div id="runs-host">
+            <div class="loading"><span class="ld-dot"></span> Loading runs…</div>
+          </div>
+        </section>
+
+        <!-- RUN DETAIL -->
+        <section class="card" id="detail-card" style="margin-top:16px;">
+          <div class="sec-head">
+            <div>
+              <div class="eyebrow">Selected run</div>
+              <div class="detail-head" id="detail-head"><div class="sec-title">No run selected</div></div>
+              <p class="detail-sub" id="detail-sub"></p>
+            </div>
+          </div>
+          <div class="detail-tabs" id="detail-tabs" style="display:none;">
+            <button class="dtab active" data-tab="quality">Quality</button>
+            <button class="dtab" data-tab="issues">Issues <span class="cnt" id="tab-issue-cnt"></span></button>
+            <button class="dtab" data-tab="lineage">Lineage</button>
+            <button class="dtab" data-tab="briefing">AI briefing</button>
+          </div>
+          <div class="detail-pane active" data-pane="quality" id="pane-quality"></div>
+          <div class="detail-pane" data-pane="issues" id="pane-issues"></div>
+          <div class="detail-pane" data-pane="lineage" id="pane-lineage"></div>
+          <div class="detail-pane" data-pane="briefing" id="pane-briefing"></div>
+          <div id="detail-empty" class="empty-note">Select a run above to see its quality profile, issue triage, lineage and AI briefing.</div>
+        </section>
+
+        <!-- AUDIT -->
+        <section class="card" style="margin-top:16px;">
+          <div class="eyebrow">Privacy</div>
+          <div class="sec-title">AI audit log</div>
+          <p class="sec-sub">The receipts. Every AI call logs its task, provider, latency and how many characters + PII items it carried — <b>never the prompt text, never a data row</b>.</p>
+          <div class="proof" id="proof">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span id="proof-text">Loading the audit trail…</span>
+          </div>
+          <div class="audit-metrics" id="audit-metrics"></div>
+          <div class="tbl-controls">
+            <label class="mini-search">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+              <input type="text" id="audit-search" placeholder="Search by task, provider or model…" autocomplete="off">
+            </label>
+            <select class="mini-sort" id="audit-sort" aria-label="Sort AI calls">
+              <option value="new">Newest first</option>
+              <option value="slow">Slowest first</option>
+              <option value="chars">Most characters</option>
+            </select>
+          </div>
+          <div id="audit-host"><div class="loading"><span class="ld-dot"></span> Loading AI calls…</div></div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+    const GRADE_LABEL = { A:'Excellent', B:'Good', C:'Fair', D:'Weak', F:'Poor' };
+    function gradeWord(g){ return GRADE_LABEL[g] || 'Ungraded'; }
+    function gradeClass(g){ return ['A','B','C','D','F'].includes(g) ? g : 'x'; }
+    function fmtInt(n){ return (n==null||isNaN(n)) ? '—' : Number(n).toLocaleString(); }
+    function fmtDate(s){
+      if(!s) return '—';
+      const d = new Date(s); if(isNaN(d)) return String(s).slice(0,16).replace('T',' ');
+      return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' ' +
+             d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+    }
+    function relTime(s){
+      if(!s) return '';
+      const d=new Date(s); if(isNaN(d)) return '';
+      const mins=Math.floor((Date.now()-d.getTime())/60000);
+      if(mins<1) return 'just now'; if(mins<60) return mins+'m ago';
+      const h=Math.floor(mins/60); if(h<24) return h+'h ago';
+      return Math.floor(h/24)+'d ago';
+    }
+    function mdBold(t){ return escapeHtml(String(t||'')).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>'); }
+
+    let RUNS = [];
+    let SELECTED = null;
+    let DETAIL = null;
+    let RUNS_Q = '', RUNS_SORT = 'new', RUNS_SHOWALL = false;
+    const RUNS_TOP = 5;
+    const GRADE_RANK = { A: 5, B: 4, C: 3, D: 2, F: 1 };
+
+    // ---------- Load overview + runs + audit ----------
+    async function loadAll() {
+      try {
+        const [ov, rs] = await Promise.all([
+          fetch('/api/dashboard/overview').then(r=>r.json()),
+          fetch('/api/dashboard/runs').then(r=>r.json()),
+        ]);
+        RUNS = rs.runs || [];
+        renderStats(ov);
+        renderGradeBars(ov.grade_dist || {});
+        renderReceipt(ov.privacy || {});
+        renderRuns();
+        populateCompare();
+        if (RUNS.length) {
+          selectRun((SELECTED && RUNS.some(r => r.run_id === SELECTED)) ? SELECTED : RUNS[0].run_id);
+        } else {
+          SELECTED = null;
+          $('detail-head').innerHTML = '<div class="sec-title">No run selected</div>';
+          $('detail-sub').textContent = '';
+          $('detail-tabs').style.display = 'none';
+          $('detail-empty').style.display = 'block';
+          $('detail-empty').textContent = 'Select a run above to see its quality profile, issue triage, lineage and AI briefing.';
+        }
+      } catch (e) {
+        $('runs-host').innerHTML = `<div class="empty-note">Could not reach the server.</div>`;
+      }
+      loadAudit();
+    }
+
+    function renderStats(ov) {
+      const p = ov.privacy || {};
+      const cells = $('stats').children;
+      // Bento — privacy hero
+      cells[0].querySelector('.val').textContent = '0';
+      cells[0].querySelector('.foot2').innerHTML =
+        `${fmtInt(p.cloud_prompt_chars)} chars of schema · ${fmtInt(p.total_redactions)} PII redacted`;
+      // Datasets
+      cells[1].querySelector('.val').textContent = fmtInt(ov.datasets);
+      cells[1].querySelector('.foot2').textContent = `${fmtInt(ov.marts)} mart(s) built`;
+      // Runs
+      cells[2].querySelector('.val').textContent = fmtInt(ov.total_runs);
+      cells[2].querySelector('.foot2').textContent = ov.last_run ? `last run ${relTime(ov.last_run)}` : 'no runs yet';
+      // Avg quality
+      cells[3].querySelector('.val').textContent = ov.avg_score ? ov.avg_score : '—';
+      cells[3].querySelector('.foot2').innerHTML = ov.top_grade && ov.top_grade!=='—'
+        ? `mostly <b>${gradeWord(ov.top_grade)} (${escapeHtml(ov.top_grade)})</b>` : 'across all runs';
+    }
+
+    function renderGradeBars(dist) {
+      const order = ['A','B','C','D','F'];
+      const fillCls = { A:'', B:'', C:'sky', D:'amber', F:'red' };
+      const total = Object.values(dist).reduce((a,b)=>a+b,0);
+      const host = $('grade-bars');
+      if (!total) { host.innerHTML = `<div class="pane-empty">No graded runs yet.</div>`; return; }
+      host.innerHTML = order.filter(g=>dist[g]).map(g => {
+        const cnt = dist[g]; const pct = Math.round(cnt/total*100);
+        return `<div class="grade-row">
+          <span class="glbl"><span class="gb ${g}">${escapeHtml(g)}</span>${gradeWord(g)}</span>
+          <span class="grade-track"><span class="grade-fill ${fillCls[g]}" style="width:${pct}%"></span></span>
+          <span class="grade-cnt">${cnt}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function renderReceipt(p) {
+      $('receipt-body').innerHTML = p.proof
+        ? escapeHtml(p.proof).replace('0 data rows','<b>0 data rows</b>')
+        : 'No AI calls logged yet.';
+    }
+
+    // ---------- Run history table ----------
+    function visibleRuns() {
+      let list = RUNS.slice();
+      if (RUNS_Q) list = list.filter(r =>
+        `${r.dataset_name} ${r.source_name} ${r.table_name} ${r.grade}`.toLowerCase().includes(RUNS_Q));
+      const s = RUNS_SORT;
+      list.sort((a, b) => {
+        if (s === 'new') return (b.started_at||'').localeCompare(a.started_at||'');
+        if (s === 'old') return (a.started_at||'').localeCompare(b.started_at||'');
+        if (s === 'grade') return (GRADE_RANK[b.grade]||0) - (GRADE_RANK[a.grade]||0);
+        if (s === 'rows') return (b.rows_out||0) - (a.rows_out||0);
+        if (s === 'name') return (a.dataset_name||'').localeCompare(b.dataset_name||'');
+        return 0;
+      });
+      return list;
+    }
+    function renderRuns() {
+      const host = $('runs-host');
+      if (!RUNS.length) {
+        host.innerHTML = `<div class="empty-note">No runs recorded yet — onboard a dataset to see it here.</div>`;
+        return;
+      }
+      const all = visibleRuns();
+      if (!all.length) {
+        host.innerHTML = `<div class="empty-note">No runs match “${escapeHtml(RUNS_Q)}”.</div>`;
+        return;
+      }
+      const capped = (RUNS_Q || RUNS_SHOWALL) ? all : all.slice(0, RUNS_TOP);
+      const moreBtn = (!RUNS_Q && all.length > RUNS_TOP)
+        ? `<button class="btn ghost show-more" id="runs-more">${RUNS_SHOWALL ? 'Show less' : 'Show all ' + all.length}</button>` : '';
+      host.innerHTML = `<div class="runs-wrap"><table class="runs">
+        <thead><tr><th>Dataset</th><th>Grade</th><th>Rows</th><th>Duration</th><th>When</th><th class="r-actions-h"></th></tr></thead>
+        <tbody>${capped.map(r => `
+          <tr data-run="${escapeHtml(r.run_id)}" class="${r.run_id===SELECTED?'selected':''}">
+            <td><div class="r-ds">${escapeHtml(r.dataset_name||r.table_name||'—')}</div>
+                <div class="r-src">${escapeHtml(r.source_name||'')}${r.gate_blocked?' · <span class="blocked-tag">blocked</span>':''}</div></td>
+            <td><span class="gb ${gradeClass(r.grade)}">${r.grade?escapeHtml(r.grade):'—'}</span></td>
+            <td><span class="r-flow"><span class="r-num">${fmtInt(r.rows_in)}</span> → <span class="r-num">${fmtInt(r.rows_out)}</span></span></td>
+            <td class="r-flow">${r.duration_s?r.duration_s+'s':'—'}</td>
+            <td class="r-date">${fmtDate(r.started_at)}</td>
+            <td class="r-actions">
+              <button class="run-delete-btn" data-table="${escapeHtml(r.table_name||'')}" title="Delete this dataset" aria-label="Delete" ${r.table_name?'':'disabled'}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+              </button>
+            </td>
+          </tr>`).join('')}</tbody></table></div>${moreBtn}`;
+      host.querySelectorAll('tr[data-run]').forEach(tr =>
+        tr.addEventListener('click', () => selectRun(tr.dataset.run)));
+      host.querySelectorAll('.run-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const table = btn.dataset.table;
+          if (!table) return;
+          if (await hpConfirm(`Delete "${table}" permanently? This cannot be undone.`, { title: 'Delete dataset' })) {
+            deleteRunDataset(table, btn);
+          }
+        });
+      });
+      const more = $('runs-more');
+      if (more) more.addEventListener('click', () => { RUNS_SHOWALL = !RUNS_SHOWALL; renderRuns(); });
+    }
+
+    async function deleteRunDataset(table, btn) {
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/onboard/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table }),
+        });
+        if (res.ok) {
+          if (typeof showToast === 'function') showToast(`Deleted "${table}".`, 'success');
+          if (SELECTED && RUNS.find(r => r.run_id === SELECTED && r.table_name === table)) SELECTED = null;
+          await loadAll();
+        } else {
+          let msg = 'Could not delete';
+          try { const j = await res.json(); if (j && j.error) msg = j.error; } catch (e) { /* ignore */ }
+          if (typeof showToast === 'function') showToast(`Could not delete "${table}" (${msg}).`, 'error');
+          if (btn) btn.disabled = false;
+        }
+      } catch (e) {
+        console.error('deleteRunDataset failed', e);
+        if (typeof showToast === 'function') showToast(`Delete failed for "${table}".`, 'error');
+        if (btn) btn.disabled = false;
+      }
+    }
+    $('runs-search').addEventListener('input', e => {
+      RUNS_Q = (e.target.value||'').trim().toLowerCase(); RUNS_SHOWALL = false; renderRuns();
+    });
+    $('runs-sort').addEventListener('change', e => { RUNS_SORT = e.target.value; renderRuns(); });
+
+    // ---------- Run detail ----------
+    async function selectRun(runId) {
+      SELECTED = runId;
+      renderRuns();
+      const run = RUNS.find(r => r.run_id === runId) || {};
+      $('detail-empty').style.display = 'none';
+      $('detail-tabs').style.display = 'inline-flex';
+      $('detail-head').innerHTML =
+        `<span class="sec-title" style="margin:0;">${escapeHtml(run.dataset_name||run.table_name||'Run')}</span>
+         <span class="gb ${gradeClass(run.grade)}">${run.grade?gradeWord(run.grade)+' · '+escapeHtml(run.grade):'Ungraded'}</span>`;
+      $('detail-sub').innerHTML =
+        `<span class="r-num">${fmtInt(run.rows_in)}</span> → <span class="r-num">${fmtInt(run.rows_out)}</span> rows`
+        + ` · ${run.duration_s?run.duration_s+'s':'—'} · ${fmtDate(run.started_at)}`
+        + (run.table_name?` · table <code>${escapeHtml(run.table_name)}</code>`:'');
+      ['quality','issues','lineage','briefing'].forEach(p => $('pane-'+p).innerHTML =
+        `<div class="loading"><span class="ld-dot"></span> Loading…</div>`);
+      try {
+        const d = await fetch('/api/dashboard/run/'+encodeURIComponent(runId)).then(r=>r.json());
+        DETAIL = d;
+        renderQuality(d.quality);
+        renderIssues(d);
+        renderLineage(d.lineage||[]);
+        renderBriefing(d);
+        const nIssues = (d.issues||[]).length;
+        $('tab-issue-cnt').textContent = nIssues ? '('+nIssues+')' : '';
+      } catch (e) {
+        $('pane-quality').innerHTML = `<div class="pane-empty">Could not load run detail.</div>`;
+      }
+    }
+
+    function renderQuality(q) {
+      const host = $('pane-quality');
+      if (!q) { host.innerHTML = `<div class="pane-empty">No quality scorecard was saved for this run.</div>`; return; }
+      const passed = q.checks_passed||0, total = q.total_checks||0;
+      const dims = (q.dimensions||[]).map(dm => {
+        const warn = dm.passed < dm.total;
+        return `<div class="dq-dim ${warn?'warn':''}"><div class="dqd-label">${escapeHtml(dm.dimension)}</div>
+          <div class="dqd-val"><span class="dqd-dot"></span>${dm.passed}/${dm.total}</div></div>`;
+      }).join('');
+      const all = []; (q.dimensions||[]).forEach(dm => (dm.checks||[]).forEach(c=>all.push(c)));
+      const fails = all.filter(c=>!c.passed), passes = all.filter(c=>c.passed);
+      const row = c => `<div class="dq-check ${c.passed?'pass':'fail'}"><span class="dqc-dot"></span><span>${escapeHtml(c.detail||c.check||'')}</span></div>`;
+      let checks = '';
+      if (fails.length) checks += `<div class="dq-checks"><div class="dq-checks-title">Needs attention (${fails.length})</div>${fails.map(row).join('')}</div>`;
+      if (passes.length) {
+        const uid = 'qp'+Math.floor(passes.length*97+ (q.score||0));
+        checks += `<div class="dq-checks"><button class="dq-toggle" onclick="const b=document.getElementById('${uid}');const s=b.style.display==='none';b.style.display=s?'block':'none';this.textContent=s?'Hide passing checks':'Show ${passes.length} passing checks';">Show ${passes.length} passing checks</button><div id="${uid}" style="display:none;margin-top:8px;">${passes.map(row).join('')}</div></div>`;
+      }
+      host.innerHTML = `<div class="dq-head">
+          <span class="gb ${gradeClass(q.grade)}">${q.grade?gradeWord(q.grade)+' · '+escapeHtml(q.grade):'Ungraded'}</span>
+          <span class="dq-score">${q.score!=null?q.score:'—'}<small> / 100</small></span>
+          ${total?`<span class="dq-summary"><b>${passed}/${total}</b> checks passed</span>`:''}
+        </div>${dims?`<div class="dq-dims">${dims}</div>`:''}${checks}`;
+    }
+
+    function renderIssues(d) {
+      const host = $('pane-issues');
+      const issues = d.issues || [];
+      if (!issues.length) { host.innerHTML = `<div class="pane-empty">✓ No quality issues for this run — the data looks clean.</div>`; return; }
+      const expByCheck = {};
+      (d.explanations||[]).forEach(it => { expByCheck[String((it.issue||{}).check||'')] = it; });
+      host.innerHTML = issues.map((iss, i) => {
+        const exp = expByCheck[iss.check_name];
+        return `<div class="issue" data-check="${escapeHtml(iss.check_name)}" data-idx="${i}">
+          <div class="issue-top">
+            <span class="sev-dot ${iss.kind}"></span>
+            <span class="sev-lbl ${iss.kind}">${escapeHtml(iss.label)}</span>
+            <span class="issue-title">${escapeHtml(iss.title)}</span>
+            ${iss.column && iss.column!=='—' ? `<span class="issue-col">${escapeHtml(iss.column)}</span>`:''}
+          </div>
+          ${iss.detail?`<div class="issue-detail">${escapeHtml(iss.detail)}</div>`:''}
+          <div class="issue-explain-host">${exp ? explainHtml(exp) : `<button class="btn explain-btn" data-explain="${i}">🤖 Explain with local AI</button>`}</div>
+        </div>`;
+      }).join('');
+      host.querySelectorAll('[data-explain]').forEach(btn =>
+        btn.addEventListener('click', () => explainIssue(parseInt(btn.dataset.explain,10), btn)));
+    }
+
+    function stripCodeFence(text) {
+      // Remove opening ```lang line and closing ``` line, keep only the code inside
+      return text.replace(/^```[^\n]*\n?/, '').replace(/\n?```\s*$/, '').trim();
+    }
+
+    function explainHtml(exp) {
+      const raw = exp.suggested_fix || '';
+      const fix = raw ? stripCodeFence(raw) : '';
+      return `<div class="issue-explain">
+        <div class="ie-text">${mdBold(exp.explanation||'')}</div>
+        ${fix?`<div class="issue-fix">${escapeHtml(fix)}</div>`:''}
+        <div class="issue-by">Suggested by ${escapeHtml(exp.generated_by||'local AI')} — review before applying</div>
+      </div>`;
+    }
+
+    async function explainIssue(idx, btn) {
+      const iss = (DETAIL.issues||[])[idx]; if (!iss) return;
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="icon-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg> Explaining on-device…`;
+      try {
+        const d = await fetch('/api/dashboard/triage/explain', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ run_id: SELECTED, check_name: iss.check_name, detail: iss.detail })
+        }).then(r=>r.json());
+        if (d.ok && d.explanation) {
+          btn.closest('.issue').querySelector('.issue-explain-host').innerHTML = explainHtml(d.explanation);
+          (DETAIL.explanations = DETAIL.explanations || []).push(d.explanation);
+        } else { throw new Error('no explanation'); }
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '🤖 Explain with local AI';
+        if (typeof showToast==='function') showToast('Could not generate an explanation.', 'error');
+      }
+    }
+
+    function renderLineage(nodes) {
+      const host = $('pane-lineage');
+      if (!nodes.length) { host.innerHTML = `<div class="pane-empty">No lineage was recorded for this run.</div>`; return; }
+      const kindLabel = { source:'Source', transform:'Transform', table:'Stored', mart:'Mart' };
+      const fileIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+      const dbIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`;
+      let transformCount = 0;
+      const items = nodes.map((n, i) => {
+        const dotInner = n.kind === 'source' ? fileIcon : (n.kind === 'table' || n.kind === 'mart') ? dbIcon : `${++transformCount}`;
+        const stem = i < nodes.length - 1 ? `<div class="lin-stem"></div>` : '';
+        return `<div class="lin-step ${n.kind}">
+          <div class="lin-track"><div class="lin-dot">${dotInner}</div>${stem}</div>
+          <div class="lin-card">
+            <div class="lin-kind">${escapeHtml(kindLabel[n.kind]||n.kind)}</div>
+            <div class="lin-title">${escapeHtml(n.title)}</div>
+            ${n.detail?`<div class="lin-detail">${escapeHtml(n.detail)}</div>`:''}
+          </div>
+        </div>`;
+      }).join('');
+      host.innerHTML = `<div class="lin-flow">${items}</div>`;
+    }
+
+    function renderBriefing(d) {
+      const host = $('pane-briefing');
+      const text = d.briefing && d.briefing.text ? d.briefing.text : '';
+      let brief = '';
+      if (text) {
+        let t = String(text).replace(/^\s*\*\*[^*\n]+\*\*[ \t]*(?:\n+|$)/,'');
+        brief = `<div class="brief-text">${t.split(/\n{2,}/).map(p=>`<p>${mdBold(p).replace(/\n/g,'<br>')}</p>`).join('')}</div>`;
+      }
+      const docs = d.column_docs || [];
+      const dict = docs.length ? `<div class="dict">${docs.map(c =>
+        `<div class="dict-row"><code>${escapeHtml(c.name)}</code><span>${escapeHtml(c.description||'')}</span></div>`).join('')}</div>` : '';
+      if (!brief && !dict) { host.innerHTML = `<div class="pane-empty">No AI briefing yet — it generates on-device shortly after onboarding.</div>`; return; }
+      const by = (d.briefing&&d.briefing.generated_by) ? `<div class="issue-by" style="margin-top:12px;">Written on-device by <b>${escapeHtml(d.briefing.generated_by)}</b></div>` : '';
+      host.innerHTML = brief + dict + by;
+    }
+
+    // ---------- Detail tabs ----------
+    $('detail-tabs').addEventListener('click', e => {
+      const btn = e.target.closest('.dtab'); if (!btn) return;
+      document.querySelectorAll('.dtab').forEach(b=>b.classList.toggle('active', b===btn));
+      document.querySelectorAll('.detail-pane').forEach(p=>p.classList.toggle('active', p.dataset.pane===btn.dataset.tab));
+    });
+
+    // ---------- Compare ----------
+    function populateCompare() {
+      const opts = RUNS.map(r => `<option value="${escapeHtml(r.run_id)}">${escapeHtml(r.dataset_name||r.run_id)} · ${r.grade||'—'} · ${fmtDate(r.started_at)}</option>`).join('');
+      $('cmp-a').innerHTML = opts; $('cmp-b').innerHTML = opts;
+      if (RUNS.length>1) { $('cmp-a').selectedIndex = 1; $('cmp-b').selectedIndex = 0; }
+    }
+    $('cmp-toggle').addEventListener('click', () => {
+      const open = $('cmp-bar').classList.toggle('open');
+      $('cmp-toggle').classList.toggle('active', open);
+      if (!open) { $('drift').classList.remove('open'); }
+    });
+    $('cmp-run').addEventListener('click', async () => {
+      const a = $('cmp-a').value, b = $('cmp-b').value;
+      const host = $('drift'); host.classList.add('open');
+      if (a===b) { host.innerHTML = `<div class="pane-empty">Pick two different runs to compare.</div>`; return; }
+      host.innerHTML = `<div class="loading"><span class="ld-dot"></span> Comparing…</div>`;
+      try {
+        const d = await fetch(`/api/dashboard/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`).then(r=>r.json());
+        renderDrift(d);
+      } catch (e) { host.innerHTML = `<div class="pane-empty">Compare failed.</div>`; }
+    });
+    function renderDrift(d) {
+      const host = $('drift'); const f = d.diff || {};
+      const chips = [];
+      chips.push(`<span class="drift-chip ${d.has_drift?'up':'ok'}">${d.has_drift?'⚠ Schema drift detected':'✓ No schema drift'}</span>`);
+      if (f.row_delta!=null) chips.push(`<span class="drift-chip">Rows <b>${f.row_delta>=0?'+':''}${fmtInt(f.row_delta)}</b></span>`);
+      if (f.score_delta!=null) chips.push(`<span class="drift-chip">Score <b>${f.score_delta>=0?'+':''}${f.score_delta}</b></span>`);
+      if (f.grade_change) chips.push(`<span class="drift-chip up">Grade <b>${escapeHtml(f.grade_change)}</b></span>`);
+      let blocks = '';
+      if ((f.added_columns||[]).length) blocks += `<div class="drift-block"><h4>Added columns</h4>${f.added_columns.map(c=>`<span class="drift-col add">+ ${escapeHtml(c)}</span>`).join('')}</div>`;
+      if ((f.removed_columns||[]).length) blocks += `<div class="drift-block"><h4>Removed columns</h4>${f.removed_columns.map(c=>`<span class="drift-col rem">− ${escapeHtml(c)}</span>`).join('')}</div>`;
+      if ((f.type_changes||[]).length) blocks += `<div class="drift-block"><h4>Type changes</h4>${f.type_changes.map(t=>`<span class="drift-col chg">${escapeHtml(t.column)}: ${escapeHtml(t.from)} → ${escapeHtml(t.to)}</span>`).join('')}</div>`;
+      if ((f.null_rate_deltas||[]).length) blocks += `<div class="drift-block"><h4>Null-rate changes</h4>${f.null_rate_deltas.map(n=>`<span class="drift-col chg">${escapeHtml(n.column)}: ${n.from_pct}% → ${n.to_pct}% (${n.delta>=0?'+':''}${n.delta})</span>`).join('')}</div>`;
+      if (!blocks && !d.has_drift) blocks = `<div class="drift-block" style="color:var(--hp-text-secondary);">Same schema — only row/score variation between these two loads.</div>`;
+      host.innerHTML = `<div class="drift-summary">${chips.join('')}</div>${blocks}`;
+    }
+
+    // ---------- Audit ----------
+    let AUDIT_ALL = [], AUDIT_Q = '', AUDIT_SORT = 'new', AUDIT_SHOWALL = false;
+    const AUDIT_TOP = 5;
+    const isCloudProv = p => { p=String(p||'').toLowerCase(); return p!=='ollama'&&p!=='gemma'&&p!=='local'&&p!=='none'&&p!==''; };
+
+    async function loadAudit() {
+      try {
+        const d = await fetch('/api/dashboard/audit').then(r=>r.json());
+        $('proof-text').innerHTML = escapeHtml(d.proof||'').replace('0 data rows','<b>0 data rows</b>');
+        const m = d.metrics || {};
+        $('audit-metrics').innerHTML = [
+          ['Total AI calls', fmtInt(m.total_calls)],
+          ['On-device', `${fmtInt(m.local_calls)} · ${m.local_pct||0}%`],
+          ['Cloud (schema only)', `${fmtInt(m.cloud_calls)} · ${m.cloud_pct||0}%`],
+          ['PII redacted', fmtInt(m.total_redactions)],
+        ].map(([l,v]) => `<div class="am"><div class="am-lbl">${l}</div><div class="am-val">${v}</div></div>`).join('');
+        AUDIT_ALL = d.records || [];
+        renderAudit();
+      } catch (e) {
+        $('audit-host').innerHTML = `<div class="empty-note">Could not load the audit log.</div>`;
+      }
+    }
+    function visibleAudit() {
+      let list = AUDIT_ALL.slice();
+      if (AUDIT_Q) list = list.filter(r =>
+        `${r.task} ${r.provider} ${r.model}`.toLowerCase().includes(AUDIT_Q));
+      const s = AUDIT_SORT;
+      list.sort((a, b) => {
+        if (s === 'new') return (b.ts||'').localeCompare(a.ts||'');
+        if (s === 'slow') return (Number(b.latency_s)||0) - (Number(a.latency_s)||0);
+        if (s === 'chars') return (Number(b.prompt_chars)||0) - (Number(a.prompt_chars)||0);
+        return 0;
+      });
+      return list;
+    }
+    function renderAudit() {
+      const host = $('audit-host');
+      if (!AUDIT_ALL.length) { host.innerHTML = `<div class="empty-note">No AI calls logged yet.</div>`; return; }
+      const all = visibleAudit();
+      if (!all.length) { host.innerHTML = `<div class="empty-note">No calls match “${escapeHtml(AUDIT_Q)}”.</div>`; return; }
+      const capped = (AUDIT_Q || AUDIT_SHOWALL) ? all : all.slice(0, AUDIT_TOP);
+      const moreBtn = (!AUDIT_Q && all.length > AUDIT_TOP)
+        ? `<button class="btn ghost show-more" id="audit-more">${AUDIT_SHOWALL ? 'Show less' : 'Show all ' + all.length}</button>` : '';
+      host.innerHTML = `<div class="audit-wrap"><table class="audit">
+        <thead><tr><th>When</th><th>Task</th><th>Provider</th><th>Model</th><th>Latency</th><th>Chars</th><th>Redacted</th><th>OK</th></tr></thead>
+        <tbody>${capped.map(r => `<tr>
+          <td class="r-date">${fmtDate(r.ts)}</td>
+          <td>${escapeHtml(String(r.task||'').replace(/_/g,' '))}</td>
+          <td><span class="prov ${isCloudProv(r.provider)?'cloud':'local'}">${isCloudProv(r.provider)?'Cloud':'Local'}</span></td>
+          <td class="mono">${escapeHtml(r.model||'')}</td>
+          <td class="mono">${r.latency_s!=null?r.latency_s+'s':'—'}</td>
+          <td class="mono">${fmtInt(r.prompt_chars)}</td>
+          <td class="mono">${fmtInt(r.redaction_count)}</td>
+          <td><span class="ok-dot ${r.success?'':'no'}"></span></td>
+        </tr>`).join('')}</tbody></table></div>${moreBtn}`;
+      const more = $('audit-more');
+      if (more) more.addEventListener('click', () => { AUDIT_SHOWALL = !AUDIT_SHOWALL; renderAudit(); });
+    }
+    $('audit-search').addEventListener('input', e => {
+      AUDIT_Q = (e.target.value||'').trim().toLowerCase(); AUDIT_SHOWALL = false; renderAudit();
+    });
+    $('audit-sort').addEventListener('change', e => { AUDIT_SORT = e.target.value; renderAudit(); });
+
+    loadAll();
+  </script>
+</body>
+</html>

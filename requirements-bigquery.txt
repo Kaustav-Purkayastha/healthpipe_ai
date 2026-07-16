@@ -1,0 +1,13 @@
+# requirements-bigquery.txt
+# BigQuery-specific tier — separate from requirements-connectors.txt because
+# google-cloud-bigquery pulls ~13 Google packages (incl. grpcio, ~50 MB).
+# Install only when BigQuery connectivity is actually needed.
+#
+# Usage:
+#   pip install -r requirements-bigquery.txt
+#   # OR via driver manager:
+#   from core.driver_manager import install_driver; install_driver("bigquery")
+
+google-cloud-bigquery==3.42.2
+db-dtypes==1.7.1
+google-cloud-storage==3.12.1

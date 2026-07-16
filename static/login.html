@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HealthPipe AI — Sign In</title>
+  <link rel="icon" type="image/svg+xml" href="/static/healthpipe_logo.svg">
+  <style>
+    :root {
+      --hp-primary: #059669;
+      --hp-primary-dark: #064E3B;
+      --hp-primary-soft: #ECFDF5;
+      --hp-secondary: #0284C7;
+      --hp-bg: #F8FAFC;
+      --hp-surface: #FFFFFF;
+      --hp-border: #E2E8F0;
+      --hp-text: #0F172A;
+      --hp-text-2: #64748B;
+      --hp-danger: #EF4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: var(--hp-bg);
+      color: var(--hp-text);
+      display: flex;
+    }
+
+    .login-container {
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      width: 100%;
+      height: 100%;
+      gap: 0;
+    }
+
+    /* ===== BRAND PANEL ===== */
+    .brand {
+      background: var(--hp-primary-dark);
+      color: #fff;
+      padding: 56px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand::before {
+      content: '';
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      right: -110px;
+      top: -90px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .brand-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .brand-logo .icon {
+      width: 44px;
+      height: 44px;
+      background: var(--hp-primary);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .brand-logo .icon svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .brand-logo .name {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand h1 {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 16px;
+      max-width: 15ch;
+    }
+
+    .brand .lede {
+      font-size: 15px;
+      color: #A7F3D0;
+      margin-bottom: 32px;
+      max-width: 34ch;
+      line-height: 1.6;
+    }
+
+    .trust-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: auto;
+    }
+
+    .trust-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .trust-tick {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6EE7B7;
+      flex-shrink: 0;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .trust-text {
+      font-size: 14px;
+    }
+
+    .trust-text b {
+      font-weight: 600;
+      color: #fff;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .trust-text span {
+      color: #9DE3CB;
+      font-size: 13px;
+    }
+
+    .brand-footer {
+      color: #6EE7B7;
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 32px;
+    }
+
+    /* ===== FORM PANEL ===== */
+    .form-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 40px;
+      background: var(--hp-surface);
+    }
+
+    .form-card {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .form-header {
+      margin-bottom: 28px;
+    }
+
+    .form-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--hp-primary);
+      margin-bottom: 8px;
+    }
+
+    .form-card h2 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+      color: var(--hp-text);
+    }
+
+    .form-card .subtitle {
+      font-size: 14px;
+      color: var(--hp-text-2);
+      margin: 0;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--hp-text);
+      margin-bottom: 8px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--hp-border);
+      border-radius: 12px;
+      background: var(--hp-bg);
+      font-size: 14px;
+      color: var(--hp-text);
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--hp-primary);
+      box-shadow: 0 0 0 3px var(--hp-primary-soft);
+    }
+
+    .password-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .password-wrapper input {
+      width: 100%;
+      padding-right: 40px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+
+    /* Hide Edge/browser password manager icons */
+    input[type="password"] {
+      -webkit-appearance: none !important;
+      appearance: none !important;
+    }
+
+    input[type="password"]::-webkit-credentials-auto-fill-button {
+      display: none !important;
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--hp-text-2);
+      transition: color 0.2s ease;
+    }
+
+    .password-toggle:hover {
+      color: var(--hp-text);
+    }
+
+    .password-toggle svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Hide browser's native password visibility toggle */
+    input[type="password"]::-webkit-outer-spin-button,
+    input[type="password"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    /* Hide Edge/Chrome password reveal button */
+    input[type="password"]::-webkit-credentials-auto-fill-button {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    /* Ensure no extra padding for the eye icon space */
+    .password-wrapper input[type="password"] {
+      padding-right: 40px;
+    }
+
+    /* Additional safety: make sure password input doesn't have reveal button space */
+    .password-wrapper input {
+      -webkit-autofill: none;
+    }
+
+    .error-message {
+      display: none;
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      color: #991B1B;
+      padding: 10px 13px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      animation: slideDown 0.2s ease;
+    }
+
+    .error-message.show {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 13px 18px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 12px;
+      background: var(--hp-primary);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+      background: #047857;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(5, 150, 105, 0.2);
+    }
+
+    .submit-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .submit-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .submit-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .form-footer {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .local-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--hp-primary-soft);
+      color: var(--hp-primary-dark);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .local-pill svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .form-helper {
+      font-size: 12.5px;
+      color: var(--hp-text-2);
+      margin-top: 18px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 880px) {
+      body {
+        overflow: auto;
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .login-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .brand {
+        padding: 32px 28px;
+        min-height: auto;
+      }
+
+      .brand h1 {
+        font-size: 24px;
+        margin-bottom: 12px;
+      }
+
+      .brand .lede {
+        margin-bottom: 20px;
+      }
+
+      .trust-list {
+        display: none;
+      }
+
+      .brand-footer {
+        display: none;
+      }
+
+      .brand::before {
+        width: 220px;
+        height: 220px;
+        right: -90px;
+        top: -70px;
+      }
+
+      .form-wrapper {
+        padding: 28px 20px;
+      }
+
+      .form-card {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .brand {
+        padding: 24px 20px;
+      }
+
+      .form-wrapper {
+        padding: 20px 16px;
+      }
+    }
+
+    /* Loading spinner */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <!-- BRAND PANEL -->
+    <div class="brand">
+      <div class="brand-content">
+        <div class="brand-logo">
+          <div class="icon">
+            <svg fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M3 12h4l2 5 4-12 2 7h6"></path>
+            </svg>
+          </div>
+          <div class="name">HealthPipe AI</div>
+        </div>
+
+        <h1>Healthcare data intelligence that never leaves your device.</h1>
+        <p class="lede">Onboard, profile, and query sensitive datasets — with AI that runs on this machine, not someone else's cloud.</p>
+
+        <div class="trust-list">
+          <div class="trust-item">
+            <div class="trust-tick">✓</div>
+            <div class="trust-text">
+              <b>Runs 100% on this machine</b>
+              <span>Local model by default — data rows never leave.</span>
+            </div>
+          </div>
+          <div class="trust-item">
+            <div class="trust-tick">✓</div>
+            <div class="trust-text">
+              <b>PII scrubbed before any cloud call</b>
+              <span>Only schema and your question leave, post-redaction.</span>
+            </div>
+          </div>
+          <div class="trust-item">
+            <div class="trust-tick">✓</div>
+            <div class="trust-text">
+              <b>Every AI step audited</b>
+              <span>Redaction counts logged — never the values.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand-footer">Built by <strong style="color:#fff;font-weight:600;">Kaustav Purkayastha</strong> · Healthcare Data Workbench</div>
+      </div>
+    </div>
+
+    <!-- FORM PANEL -->
+    <div class="form-wrapper">
+      <div class="form-card">
+        <div class="form-header">
+          <div class="form-eyebrow">Secure access</div>
+          <h2>Sign in</h2>
+          <p class="subtitle">Enter your operator credentials to open the workbench.</p>
+        </div>
+
+        <div id="error-message" class="error-message"></div>
+
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" autocomplete="username" required>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="password-wrapper">
+              <input type="password" id="password" name="password" autocomplete="current-password" required>
+              <button type="button" class="password-toggle" id="password-toggle" aria-label="Toggle password visibility">
+                <svg id="eye-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="submit-btn">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+              <path d="M10 17l5-5-5-5"></path>
+              <path d="M15 12H3"></path>
+            </svg>
+            <span id="btn-text">Sign in</span>
+          </button>
+        </form>
+
+        <div class="form-footer">
+          <span class="local-pill">
+            <svg fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <rect x="4" y="11" width="16" height="9" rx="2"></rect>
+              <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+            </svg>
+            Local-first · nothing sent to sign in
+          </span>
+        </div>
+
+        <p class="form-helper">Single-operator workspace — credentials are set by the administrator in <code>.env</code>. No sign-up.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('login-form');
+    const errorMsg = document.getElementById('error-message');
+    const submitBtn = form.querySelector('.submit-btn');
+    const btnText = document.getElementById('btn-text');
+    const passwordInput = document.getElementById('password');
+    const passwordToggle = document.getElementById('password-toggle');
+
+    // Auto-fill username for single-operator demo
+    const usernameInput = document.getElementById('username');
+    usernameInput.value = 'admin';
+    passwordInput.focus();
+
+    // Password visibility toggle
+    const eyeIcon = document.getElementById('eye-icon');
+
+    const updatePasswordIcon = () => {
+      const isPassword = passwordInput.type === 'password';
+      if (isPassword) {
+        // Show eye icon (password hidden)
+        eyeIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+      } else {
+        // Show eye-slash icon (password visible)
+        eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+      }
+    };
+
+    passwordToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      updatePasswordIcon();
+    });
+
+    // Initialize icon on page load
+    updatePasswordIcon();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.classList.remove('show');
+
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      // Show loading state
+      submitBtn.disabled = true;
+      btnText.innerHTML = '<span class="spinner"></span>';
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        if (response.ok) {
+          // Success — get redirect URL from server and navigate
+          const data = await response.json();
+          window.location.href = data.redirect || 'http://localhost:8502/?auth=1';
+        } else {
+          // Show error
+          errorMsg.textContent = 'Invalid credentials';
+          errorMsg.classList.add('show');
+          submitBtn.disabled = false;
+          btnText.textContent = 'Sign in';
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Connection error. Please try again.';
+        errorMsg.classList.add('show');
+        submitBtn.disabled = false;
+        btnText.textContent = 'Sign in';
+      }
+    });
+  </script>
+</body>
+</html>

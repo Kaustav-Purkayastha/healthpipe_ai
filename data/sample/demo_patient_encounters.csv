@@ -1,0 +1,46 @@
+PatientID,FirstName,LastName,DateOfBirth,Gender,AdmissionDate,DischargeDate,DiagnosisCode,DiagnosisDescription,LengthOfStayDays,InsuranceType,BilledAmount,PaidAmount,BMI,SystolicBP,DiastolicBP,ReadmittedWithin30Days,Department,AttendingPhysicianID,DischargeDisposition
+P001,James,Mitchell,1952-03-14,Male,2024-01-08,2024-01-11,E11.9,Type 2 diabetes mellitus,3,Medicare,4250.00,3612.50,28.4,138,82,No,Endocrinology,DR001,Home
+P002,Maria,Gonzalez,1967-11-22,Female,2024-01-09,2024-01-14,I10,Essential hypertension,5,Medicaid,3180.00,2544.00,31.2,158,94,No,Internal Medicine,DR002,Home
+P003,Robert,Chen,1945-07-30,Male,2024-01-10,2024-01-15,I25.10,Atherosclerotic heart disease,5,Medicare,8920.00,7582.00,26.7,145,88,Yes,Cardiology,DR003,Skilled Nursing Facility
+P004,Angela,Williams,1958-05-18,Female,2024-01-11,2024-01-13,N18.3,Chronic kidney disease stage 3,2,Medicare,5640.00,4794.00,,142,90,No,Nephrology,DR004,Home
+P005,Thomas,Johnson,1971-09-03,Male,2024-01-12,2024-01-16,J44.1,COPD with acute exacerbation,4,Private,6200.00,5270.00,22.1,128,78,No,Pulmonology,DR005,Home
+P006,Lisa,Patel,1963-02-14,Female,2024-01-13,2024-01-14,Z00.00,General adult medical examination,1,Private,890.00,756.50,24.8,120,76,No,Internal Medicine,DR002,Home
+P007,David,Thompson,1949-08-25,Male,2024-01-14,2024-01-18,J18.9,Pneumonia unspecified,4,Medicare,5100.00,,23.9,134,84,No,Pulmonology,DR005,Home with Home Health
+P008,Sandra,Brown,1975-12-08,Female,2024-01-15,2024-01-17,M54.5,Low back pain,2,Private,2340.00,1989.00,,118,72,No,Orthopedics,DR006,Home
+P009,Michael,Davis,1961-04-19,Male,2024-01-16,2024-01-21,F32.1,Major depressive disorder moderate,5,Medicaid,4780.00,3824.00,27.3,122,80,No,Psychiatry,DR007,Home
+P010,Patricia,Martinez,1978-06-30,Female,2024-01-17,2024-01-19,E78.5,Hyperlipidemia unspecified,2,Private,1850.00,1572.50,29.6,130,82,No,Endocrinology,DR001,Home
+P011,Charles,Wilson,1943-11-07,Male,2024-01-18,2024-01-24,I25.10,Atherosclerotic heart disease,6,Medicare,11200.00,9520.00,24.1,152,92,No,Cardiology,DR003,Rehab
+P012,Helen,Anderson,1969-03-23,Female,2024-01-19,2024-01-20,Z00.00,General adult medical examination,1,Uninsured,890.00,,21.5,116,74,No,Internal Medicine,DR008,Home
+P013,William,Taylor,1956-10-14,Male,2024-01-20,2024-01-25,N18.3,Chronic kidney disease stage 3,5,Medicare,7200.00,6120.00,,148,88,No,Nephrology,DR004,Home
+P014,Dorothy,Moore,1984-01-31,Female,2024-01-21,2024-01-22,M54.5,Low back pain,1,Private,1200.00,1020.00,23.4,112,70,No,Orthopedics,DR006,Home
+P015,George,Jackson,1952-07-16,Male,2024-01-22,2024-01-26,E11.9,Type 2 diabetes mellitus,4,Medicare,5600.00,4760.00,32.8,146,90,No,Endocrinology,DR001,Home
+P016,Barbara,White,2099-05-22,Female,2024-01-23,2024-01-24,Z00.00,General adult medical examination,1,Private,890.00,756.50,22.7,118,74,No,Internal Medicine,DR008,Home
+P017,Joseph,Harris,1960-08-11,Male,2024-01-24,2024-01-28,I10,Essential hypertension,4,Medicare,3400.00,2890.00,-5.2,165,98,No,Internal Medicine,DR002,Home
+P018,Nancy,Martin,1957-03-29,Female,2024-01-25,2024-01-30,J44.1,COPD with acute exacerbation,5,Medicare,6800.00,5780.00,92.1,138,86,Yes,Pulmonology,DR005,Skilled Nursing Facility
+P019,Steven,Garcia,1973-12-05,Male,2024-01-26,2024-01-27,E78.5,Hyperlipidemia unspecified,1,Private,ERROR,850.00,26.1,124,78,No,Endocrinology,DR001,Home
+P020,Betty,Robinson,1965-09-18,Female,2024-01-27,2024-01-31,F32.1,Major depressive disorder moderate,4,Medicaid,4200.00,3360.00,28.9,126,82,No,Psychiatry,DR007,Home
+P021,Kenneth,Clark,1948-04-02,Male,2024-01-28,2024-02-02,I25.10,Atherosclerotic heart disease,5,Medicare,9100.00,7735.00,25.3,149,90,No,Cardiology,DR003,Home with Home Health
+P022,Carol,Rodriguez,1972-11-27,Female,2024-01-29,2024-01-30,M54.5,Low back pain,1,Private,1100.00,935.00,,114,72,No,Orthopedics,DR006,Home
+P023,Donald,Lewis,1955-06-13,Male,2024-01-30,2024-02-03,J18.9,Pneumonia unspecified,4,Medicare,5300.00,,24.6,136,84,No,Pulmonology,DR005,Home
+P024,Ruth,Lee,1980-02-08,Female,2024-01-31,2024-02-02,E11.9,Type 2 diabetes mellitus,2,Private,3100.00,2635.00,30.7,132,84,No,Endocrinology,DR001,Home
+P025,Paul,Walker,1967-08-21,Male,2024-02-01,2024-02-06,N18.3,Chronic kidney disease stage 3,5,Medicaid,7400.00,5920.00,27.8,144,88,No,Nephrology,DR004,Home
+P026,Sharon,Hall,1959-01-14,Female,2024-02-02,2024-02-05,I10,Essential hypertension,3,Medicare,3600.00,3060.00,,154,92,No,Internal Medicine,DR002,Home
+P027,Mark,Allen,1976-10-09,Male,2024-02-03,2024-02-04,Z00.00,General adult medical examination,1,Private,890.00,756.50,23.6,118,74,No,Internal Medicine,DR008,Home
+P028,Virginia,Young,1953-05-26,Female,2024-02-04,2024-02-09,J44.1,COPD with acute exacerbation,5,Medicare,7100.00,6035.00,21.8,130,80,No,Pulmonology,DR005,Rehab
+P029,Larry,Hernandez,1969-07-15,Male,2024-02-05,,F32.1,Major depressive disorder moderate,,Medicaid,4500.00,3600.00,26.4,120,78,No,Psychiatry,DR007,
+P030,Deborah,King,1961-12-03,Female,2024-02-06,2024-02-10,I25.10,Atherosclerotic heart disease,4,Medicare,8400.00,7140.00,29.3,147,90,Yes,Cardiology,DR003,Skilled Nursing Facility
+P031,Gary,Wright,1943-09-17,Male,2024-02-07,2024-02-12,N18.3,Chronic kidney disease stage 3,5,Medicare,7800.00,6630.00,,150,92,No,Nephrology,DR004,Home
+P032,Janet,Scott,1977-04-28,Female,2024-02-08,2024-02-09,M54.5,Low back pain,1,Private,1050.00,892.50,24.9,116,74,No,Orthopedics,DR006,Home
+P033,Raymond,Green,1964-01-06,Male,2024-02-09,2024-02-13,E11.9,Type 2 diabetes mellitus,4,Medicaid,4800.00,3840.00,31.5,140,86,No,Endocrinology,DR001,Home
+P034,Judith,Adams,1956-08-22,Female,2024-02-10,2024-02-13,I10,Essential hypertension,3,Medicare,3200.00,2720.00,26.8,156,94,No,Internal Medicine,DR002,Home
+P035,Jack,Baker,1971-03-11,Male,2024-02-11,2024-02-14,E78.5,Hyperlipidemia unspecified,3,Private,2100.00,1785.00,27.4,126,80,No,Endocrinology,DR001,Home
+P003,Robert,Chen,1945-07-30,Male,2024-01-10,2024-01-15,I25.10,Atherosclerotic heart disease,5,Medicare,8920.00,7582.00,26.7,145,88,Yes,Cardiology,DR003,Skilled Nursing Facility
+P036,Evelyn,Nelson,1968-06-19,Female,2024-02-12,2024-02-15,J18.9,Pneumonia unspecified,3,Private,4200.00,3570.00,22.3,122,76,No,Pulmonology,DR005,Home
+P037,Henry,Carter,1950-11-04,Male,2024-02-13,2024-02-18,I25.10,Atherosclerotic heart disease,5,Medicare,9600.00,8160.00,25.9,151,90,No,Cardiology,DR003,Home with Home Health
+P038,Alice,Mitchell,1982-07-24,Female,2024-02-14,,F32.1,Major depressive disorder moderate,,Medicaid,4100.00,,27.6,118,76,No,Psychiatry,DR007,
+P039,Frank,Perez,1957-02-13,Male,2024-02-15,2024-02-19,E11.9,Type 2 diabetes mellitus,4,Medicare,5200.00,4420.00,29.8,142,86,No,Endocrinology,DR001,Home
+P040,Joan,Roberts,1974-09-30,Female,2024-02-16,2024-02-17,Z00.00,General adult medical examination,1,Private,890.00,756.50,23.1,114,72,No,Internal Medicine,DR008,Home
+P041,Arthur,Turner,1946-12-21,Male,2024-02-17,2024-02-23,N18.3,Chronic kidney disease stage 3,6,Medicare,8600.00,7310.00,,156,94,Yes,Nephrology,DR004,Skilled Nursing Facility
+P042,Kathryn,Phillips,1963-04-08,Female,2024-02-18,2024-02-21,I10,Essential hypertension,3,Medicaid,3000.00,2400.00,28.2,152,90,No,Internal Medicine,DR002,Home
+P043,Walter,Campbell,1955-10-16,Male,2024-02-19,2024-02-24,J44.1,COPD with acute exacerbation,5,Medicare,7300.00,6205.00,21.2,132,82,No,Pulmonology,DR005,Home with Home Health
+P044,Diane,Parker,1979-01-27,Female,2024-02-20,2024-02-21,M54.5,Low back pain,1,Private,1150.00,977.50,24.3,116,72,No,Orthopedics,DR006,Home

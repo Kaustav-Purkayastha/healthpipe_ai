@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ask the data — HealthPipe AI</title>
+  <link rel="icon" type="image/svg+xml" href="/static/healthpipe_logo.svg">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <style>
+    @keyframes icon-spin { to { transform: rotate(360deg); } }
+    @keyframes ps-pulse { 50% { opacity: 0.35; } }
+
+    /* ---------- Intro ---------- */
+    .intro-card .lead { font-size: 14px; line-height: 1.7; color: var(--hp-text-secondary); max-width: 88ch; }
+    .intro-card .lead b { color: var(--hp-text-primary); }
+    .priv-note {
+      margin-top: 14px; padding: 12px 16px; border-radius: 14px; display: inline-flex; align-items: center; gap: 10px;
+      background: var(--hp-primary-soft); border: 1px solid var(--hp-primary-100);
+      font-size: 12.5px; color: var(--hp-primary-dark);
+    }
+    .priv-note svg { flex-shrink: 0; }
+
+    /* ---------- Control bar ---------- */
+    .ctl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .fld label {
+      display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--hp-text-secondary); margin-bottom: 7px;
+    }
+    .tbl-select {
+      padding: 11px 14px; font-size: 14px; border: 1px solid var(--hp-border); border-radius: 12px;
+      font-family: inherit; background: var(--hp-surface); color: var(--hp-text-primary); cursor: pointer;
+      min-width: 320px; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .tbl-select:hover { border-color: var(--hp-text-secondary); }
+    .tbl-select:focus { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px rgba(5,150,105,0.12); }
+
+    .prov-badge {
+      display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700;
+      padding: 8px 14px; border-radius: 999px; white-space: nowrap;
+    }
+    .prov-badge .pb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .prov-badge.cloud { background: var(--hp-secondary-100); color: var(--hp-secondary-dark); }
+    .prov-badge.cloud .pb-dot { background: var(--hp-secondary); }
+    .prov-badge.local { background: var(--hp-primary-soft); color: var(--hp-primary-dark); }
+    .prov-badge.local .pb-dot { background: var(--hp-primary); }
+    .prov-badge.none { background: #FEF3C7; color: #92400E; }
+    .prov-badge.none .pb-dot { background: #D97706; }
+    .prov-caption { font-size: 11.5px; color: var(--hp-text-secondary); margin-top: 8px; text-align: right; }
+
+    /* schema accordion */
+    .schema-acc { margin-top: 18px; border-top: 1px solid var(--hp-border); padding-top: 14px; }
+    .schema-toggle {
+      display: inline-flex; align-items: center; gap: 8px; background: none; border: none; cursor: pointer;
+      font-family: inherit; font-size: 13px; font-weight: 600; color: var(--hp-text-primary); padding: 0;
+    }
+    .schema-toggle svg { transition: transform 0.18s ease; color: var(--hp-text-secondary); }
+    .schema-acc.open .schema-toggle svg { transform: rotate(90deg); color: var(--hp-primary); }
+    .schema-body { display: none; margin-top: 14px; }
+    .schema-acc.open .schema-body { display: block; }
+    .schema-cap { font-size: 12px; color: var(--hp-text-secondary); margin-bottom: 10px; }
+    .schema-grid { border: 1px solid var(--hp-border); border-radius: 14px; overflow: hidden; }
+    .schema-row {
+      display: grid; grid-template-columns: 200px 120px 1fr; gap: 14px; align-items: baseline;
+      padding: 10px 16px; border-bottom: 1px solid var(--hp-border); font-size: 12.5px;
+    }
+    .schema-row:last-child { border-bottom: none; }
+    .schema-row:nth-child(odd) { background: var(--hp-bg); }
+    .schema-row code { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; color: var(--hp-primary-dark); font-weight: 700; overflow-wrap: anywhere; }
+    .schema-row .sc-type { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11px; color: var(--hp-text-secondary); }
+    .schema-row .sc-desc { color: var(--hp-text-secondary); line-height: 1.5; }
+    @media (max-width: 720px) { .schema-row { grid-template-columns: 1fr; gap: 3px; } .schema-row .sc-type { display: none; } }
+
+    /* starter chips */
+    .starters { margin-top: 18px; }
+    .starters .st-label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--hp-text-secondary); margin-bottom: 10px; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .q-chip {
+      font-family: inherit; font-size: 13px; text-align: left; cursor: pointer;
+      background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 999px;
+      padding: 8px 15px; color: var(--hp-text-primary); transition: all 0.18s ease;
+    }
+    .q-chip:hover { border-color: var(--hp-primary); background: var(--hp-primary-soft); color: var(--hp-primary-dark); transform: translateY(-2px); }
+    .q-chip:focus-visible { outline: 2px solid var(--hp-primary); outline-offset: 2px; }
+
+    /* ---------- Chat thread ---------- */
+    .thread { display: flex; flex-direction: column; gap: 20px; }
+    .empty-thread {
+      text-align: center; padding: 40px 20px; color: var(--hp-text-secondary);
+    }
+    .empty-thread .et-icon {
+      width: 56px; height: 56px; border-radius: 18px; margin: 0 auto 16px; display: grid; place-items: center;
+      background: var(--hp-primary-soft); color: var(--hp-primary); border: 1px solid var(--hp-primary-100);
+    }
+    .empty-thread .et-title { font-family: var(--font-family-display); font-size: 16px; font-weight: 700; color: var(--hp-text-primary); }
+    .empty-thread .et-sub { font-size: 13px; margin-top: 6px; }
+
+    .msg-user { display: flex; justify-content: flex-end; }
+    .msg-user .bubble {
+      background: var(--hp-primary); color: #fff; padding: 12px 18px; border-radius: 18px 18px 4px 18px;
+      font-size: 14px; line-height: 1.5; max-width: 80%; font-weight: 500;
+    }
+    .msg-ai { display: flex; gap: 12px; }
+    .msg-ai .ai-mark {
+      width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center;
+      background: var(--hp-primary-dark); color: #fff;
+    }
+    .msg-ai .ai-body { flex: 1; min-width: 0; }
+    .ai-narr { font-size: 14px; line-height: 1.65; color: var(--hp-text-primary); }
+    .ai-sql {
+      margin-top: 12px; background: #0F172A; border-radius: 12px; padding: 14px 16px; overflow-x: auto;
+    }
+    .ai-sql-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #64748B; margin-bottom: 8px; }
+    .ai-sql code { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12.5px; color: #E2E8F0; white-space: pre; line-height: 1.55; }
+    .ai-sql .kw { color: #6EE7B7; font-weight: 700; }
+
+    .res-wrap { margin-top: 14px; border: 1px solid var(--hp-border); border-radius: 14px; overflow: hidden; }
+    .res-scroll { overflow-x: auto; }
+    table.res { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+    table.res th {
+      background: var(--hp-bg); text-align: left; padding: 10px 14px; font-weight: 700; color: var(--hp-text-secondary);
+      white-space: nowrap; border-bottom: 1px solid var(--hp-border); position: sticky; top: 0;
+    }
+    table.res td { padding: 9px 14px; border-bottom: 1px solid var(--hp-border); color: var(--hp-text-primary); white-space: nowrap; }
+    table.res tr:last-child td { border-bottom: none; }
+    table.res tr:nth-child(even) td { background: var(--hp-bg); }
+    .res-cap { font-size: 11.5px; color: var(--hp-text-secondary); padding: 8px 14px; background: var(--hp-bg); border-top: 1px solid var(--hp-border); }
+
+    .chart-section { border-top: 1px solid var(--hp-border); padding: 10px 14px 14px; }
+    .chart-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--hp-text-secondary); margin-bottom: 10px; }
+    .chart-wrap { }
+    .bar-row { display: grid; grid-template-columns: 160px 1fr 64px; align-items: center; gap: 10px; margin-bottom: 7px; font-size: 12px; }
+    .bar-row .bl { color: var(--hp-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { background: var(--hp-bg); border-radius: 999px; height: 20px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--hp-secondary); border-radius: 999px; }
+    .bar-row .bv { text-align: right; font-family: var(--font-family-display); font-weight: 700; color: var(--hp-text-primary); font-size: 12px; }
+
+    .prov-line { font-size: 11.5px; color: var(--hp-text-secondary); margin-top: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .prov-line .redact { color: var(--hp-primary-dark); font-weight: 600; }
+    .fallback-note {
+      margin-top: 12px; font-size: 12.5px; color: #92400E; background: #FEF3C7; border: 1px solid #FDE68A;
+      border-radius: 12px; padding: 10px 14px; line-height: 1.5;
+    }
+    .pii-note {
+      display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;
+      font-size: 12.5px; line-height: 1.5; color: var(--hp-primary-dark);
+      background: var(--hp-primary-soft); border: 1px solid var(--hp-primary-100);
+      border-radius: 12px; padding: 11px 14px;
+    }
+    .pii-note svg { flex-shrink: 0; margin-top: 1px; color: var(--hp-primary); }
+    .pii-note b { color: var(--hp-primary-dark); }
+    .composer-hint {
+      display: flex; align-items: flex-start; gap: 8px; margin-top: 10px;
+      font-size: 11.5px; line-height: 1.5; color: var(--hp-text-secondary);
+    }
+    .composer-hint svg { flex-shrink: 0; margin-top: 1px; color: var(--hp-text-secondary); }
+    .ai-error {
+      margin-top: 12px; font-size: 13px; color: #92400E; background: #FEF3C7; border: 1px solid #FDE68A;
+      border-radius: 12px; padding: 11px 14px; line-height: 1.5;
+    }
+
+    /* composer */
+    .composer { display: flex; gap: 12px; align-items: flex-end; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--hp-border); }
+    .composer textarea {
+      flex: 1; resize: none; font-family: inherit; font-size: 14px; line-height: 1.5;
+      border: 1px solid var(--hp-border); border-radius: 14px; padding: 12px 16px; color: var(--hp-text-primary);
+      background: var(--hp-surface); min-height: 48px; max-height: 160px; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .composer textarea:focus { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px rgba(5,150,105,0.12); }
+    .send-btn { flex-shrink: 0; height: 48px; }
+    .thinking { display: inline-flex; align-items: center; gap: 9px; font-size: 13px; color: var(--hp-text-secondary); }
+    .thinking .ps-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hp-secondary); animation: ps-pulse 1s infinite; }
+
+    .empty-state {
+      text-align: center; padding: 30px; color: var(--hp-text-secondary); font-size: 13.5px;
+    }
+    .btn svg.icon-spin { animation: icon-spin 0.9s linear infinite; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="mark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 5 4-12 2 7h6"/></svg>
+        </div>
+        <div>
+          <div class="name">HealthPipe&nbsp;AI</div>
+          <div class="sb-credit">Built by <strong>Kaustav Purkayastha</strong></div>
+        </div>
+      </div>
+      <a class="navlink" href="/pages/dashboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Dashboard</a>
+      <a class="navlink" href="/pages/onboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h10v8H4z"/><path d="M18 12h2v8h-2z"/></svg>Onboard data</a>
+      <a class="navlink" href="/pages/mart.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>US States Health Mart</a>
+      <a class="navlink active" href="/pages/chat.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Ask the data</a>
+      <a class="navlink" href="/pages/sql.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>SQL console</a>
+      <div class="sb-spacer"></div>
+      <div class="model-panel" id="model-panel" style="display:none;">
+        <div class="mp-label">AI models</div>
+        <div class="mp-list" id="mp-list"></div>
+        <div class="mp-modes" id="mp-modes">
+          <button class="mp-mode" data-mode="hybrid"><span class="mp-mode-title">Cloud + on-device</span></button>
+          <button class="mp-mode" data-mode="local_only"><span class="mp-mode-title">On-device only</span></button>
+        </div>
+        <div class="mp-help" id="mp-help"></div>
+      </div>
+      <div class="verified">
+        <div class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div><b>Private by design</b><br><span>Data stays on this device</span></div>
+      </div>
+      <a class="logout" href="#logout">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Log out</a>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="page-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+          </div>
+          <div class="title-wrap">
+            <h1>Ask the data</h1>
+            <p class="sub">Plain-English questions → generated SQL → answered on this device</p>
+          </div>
+        </div>
+        <div class="right">
+          <button class="avatar-btn" aria-label="Signed in as KP" title="Signed in">
+            <span class="avatar">KP</span>
+            <span class="avatar-status" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- INTRO -->
+        <section class="card intro-card">
+          <div class="eyebrow">What this is</div>
+          <div class="sec-title">Ask a question, get an answer from your data</div>
+          <p class="lead">
+            Type a question in plain English. The AI writes <b>SQL</b>, runs it on your local DuckDB, and
+            explains the result. The <b>generated SQL is always shown</b> — so you can verify exactly what ran.
+            Only the schema and your question (scrubbed of any PII) ever touch the cloud model; <b>data rows never leave this device</b>.
+          </p>
+          <div class="priv-note">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+            Every query executes locally · values stay on this machine
+          </div>
+        </section>
+
+        <!-- CONTROLS -->
+        <section class="card" id="ctl-card">
+          <div class="ctl-head">
+            <div class="fld">
+              <label>Table to query</label>
+              <select id="table-select" class="tbl-select"></select>
+            </div>
+            <div style="text-align:right;">
+              <span class="prov-badge none" id="prov-badge"><span class="pb-dot"></span><span id="prov-text">Checking…</span></span>
+              <div class="prov-caption" id="prov-caption"></div>
+            </div>
+          </div>
+
+          <div class="schema-acc" id="schema-acc">
+            <button class="schema-toggle" id="schema-toggle">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+              Schema &amp; data dictionary
+            </button>
+            <div class="schema-body" id="schema-body"></div>
+          </div>
+
+          <div class="starters" id="starters" style="display:none;">
+            <div class="st-label">Starter questions</div>
+            <div class="chip-row" id="starter-chips"></div>
+          </div>
+        </section>
+
+        <!-- CHAT -->
+        <section class="card" id="chat-card">
+          <div class="thread" id="thread">
+            <div class="empty-thread" id="empty-thread">
+              <div class="et-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+              </div>
+              <div class="et-title">Ask anything about this table</div>
+              <div class="et-sub">Pick a starter question above, or type your own below.</div>
+            </div>
+          </div>
+
+          <div class="composer">
+            <textarea id="composer-input" rows="1" placeholder="Ask a question about this table…"></textarea>
+            <button class="btn btn-primary send-btn" id="send-btn">
+              <svg id="send-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              <span class="btn-label">Ask</span>
+            </button>
+          </div>
+          <div class="composer-hint">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+            Please don't enter personal information (names, emails, phone numbers, IDs). Questions are automatically scrubbed of PII before any cloud call.
+          </div>
+          <div style="margin-top:14px; display:none;" id="clear-wrap">
+            <button class="btn btn-ghost" id="clear-btn">Clear conversation</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    const SQL_KEYWORDS = ['SELECT','FROM','WHERE','GROUP BY','ORDER BY','LIMIT','JOIN','LEFT JOIN','INNER JOIN','ON','AS','AND','OR','DESC','ASC','WITH','HAVING','COUNT','AVG','SUM','MIN','MAX','ROUND','DISTINCT','CASE','WHEN','THEN','ELSE','END'];
+    function highlightSql(sql) {
+      let out = escapeHtml(sql);
+      SQL_KEYWORDS.sort((a,b)=>b.length-a.length).forEach(kw => {
+        out = out.replace(new RegExp('\\b(' + kw.replace(/ /g,'\\s+') + ')\\b','gi'), '<span class="kw">$1</span>');
+      });
+      return out;
+    }
+
+    let TABLES = [];
+    let MODELS = { mode: 'hybrid', gemini: false, ollama: false, gemModel: 'Gemini', ollModel: 'Gemma' };
+
+    function friendlyProvider(p) {
+      if (p === 'gemini') return `${MODELS.gemModel} (cloud)`;
+      if (p === 'ollama' || p === 'local') return `${MODELS.ollModel} (local)`;
+      return p || 'unknown';
+    }
+
+    async function loadModels() {
+      try {
+        const d = await (await fetch('/api/models')).json();
+        MODELS.mode = d.mode || 'hybrid';
+        (d.providers || []).forEach(p => {
+          if (p.kind === 'cloud') { MODELS.gemini = p.available; MODELS.gemModel = p.model || 'Gemini'; }
+          if (p.kind === 'local') { MODELS.ollama = p.available; MODELS.ollModel = p.model || 'Gemma'; }
+        });
+      } catch (e) { /* leave defaults */ }
+      renderProvider();
+    }
+
+    // The sidebar mode toggle (app.js) fires this after switching cloud/on-device —
+    // refresh the provider badge so it reflects the new routing immediately.
+    document.addEventListener('hp:modechange', (e) => {
+      MODELS.mode = (e.detail && e.detail.mode) || MODELS.mode;
+      renderProvider();
+    });
+
+    // Which provider will answer the next question, before asking.
+    function effectiveProvider() {
+      if (MODELS.mode === 'local_only') return MODELS.ollama ? 'ollama' : 'none';
+      if (MODELS.gemini) return 'gemini';
+      if (MODELS.ollama) return 'ollama';
+      return 'none';
+    }
+
+    function renderProvider() {
+      const eff = effectiveProvider();
+      const badge = $('prov-badge'), text = $('prov-text'), cap = $('prov-caption');
+      badge.className = 'prov-badge ' + (eff === 'gemini' ? 'cloud' : eff === 'ollama' ? 'local' : 'none');
+      if (eff === 'gemini') {
+        text.textContent = `⚡ ${MODELS.gemModel} · cloud`;
+        cap.textContent = 'Cloud sees schema + question only (PII-scrubbed).';
+      } else if (eff === 'ollama') {
+        text.textContent = `🔒 ${MODELS.ollModel} · on-device`;
+        cap.textContent = MODELS.mode === 'local_only' ? 'On-device only mode — nothing leaves this machine.' : 'Answering locally.';
+      } else {
+        text.textContent = 'No AI provider available';
+        cap.textContent = 'Start Ollama, or configure a cloud key.';
+      }
+    }
+
+    async function loadTables() {
+      const sel = $('table-select');
+      try {
+        const d = await (await fetch('/api/query/tables')).json();
+        TABLES = d.tables || [];
+      } catch (e) { TABLES = []; }
+      if (!TABLES.length) {
+        sel.innerHTML = '<option value="">No tables yet</option>';
+        $('chat-card').innerHTML = '<div class="empty-state">No tables to query yet — <a href="/pages/onboard.html" style="color:var(--hp-primary);font-weight:600;">onboard a dataset</a> or <a href="/pages/mart.html" style="color:var(--hp-primary);font-weight:600;">build a mart</a> first.</div>';
+        return;
+      }
+      const marts = TABLES.filter(t => t.kind === 'mart');
+      const sources = TABLES.filter(t => t.kind === 'source');
+      let html = '';
+      if (marts.length) html += `<optgroup label="Built marts">${marts.map(optHtml).join('')}</optgroup>`;
+      if (sources.length) html += `<optgroup label="Onboarded datasets">${sources.map(optHtml).join('')}</optgroup>`;
+      sel.innerHTML = html;
+      sel.addEventListener('change', onTableChange);
+      onTableChange();
+    }
+    function optHtml(t) {
+      const label = t.label && t.label !== t.table ? `${t.label} (${t.table})` : t.table;
+      return `<option value="${escapeHtml(t.table)}">${escapeHtml(label)} · ${t.rows.toLocaleString()} rows</option>`;
+    }
+
+    function currentTable() { return $('table-select').value; }
+
+    async function onTableChange() {
+      loadSchema(currentTable());
+      loadStarters(currentTable());
+    }
+
+    async function loadSchema(table) {
+      const body = $('schema-body');
+      body.innerHTML = '<div class="schema-cap">Loading schema…</div>';
+      try {
+        const d = await (await fetch('/api/query/schema?table=' + encodeURIComponent(table))).json();
+        const cols = d.columns || [];
+        const anyDesc = cols.some(c => c.description);
+        body.innerHTML = `
+          <div class="schema-cap">${cols.length} columns · ${(d.n_rows||0).toLocaleString()} rows${anyDesc ? ' · descriptions from on-device AI enrichment' : ''}</div>
+          <div class="schema-grid">${cols.map(c => `
+            <div class="schema-row">
+              <code>${escapeHtml(c.name)}</code>
+              <span class="sc-type">${escapeHtml(c.type)}</span>
+              <span class="sc-desc">${escapeHtml(c.description || '—')}</span>
+            </div>`).join('')}</div>`;
+      } catch (e) {
+        body.innerHTML = '<div class="schema-cap">Could not load the schema.</div>';
+      }
+    }
+
+    async function loadStarters(table) {
+      const wrap = $('starters'), chips = $('starter-chips');
+      try {
+        const d = await (await fetch('/api/query/starters?table=' + encodeURIComponent(table))).json();
+        const qs = d.questions || [];
+        if (!qs.length) { wrap.style.display = 'none'; return; }
+        chips.innerHTML = qs.map(q => `<button class="q-chip">${escapeHtml(q)}</button>`).join('');
+        chips.querySelectorAll('.q-chip').forEach(btn => {
+          btn.addEventListener('click', () => ask(btn.textContent));
+        });
+        wrap.style.display = 'block';
+      } catch (e) { wrap.style.display = 'none'; }
+    }
+
+    $('schema-toggle').addEventListener('click', () => $('schema-acc').classList.toggle('open'));
+
+    // ---------- Asking ----------
+    let BUSY = false;
+    const thread = $('thread');
+
+    function addUser(q) {
+      $('empty-thread')?.remove();
+      const el = document.createElement('div');
+      el.className = 'msg-user';
+      el.innerHTML = `<div class="bubble">${escapeHtml(q)}</div>`;
+      thread.appendChild(el);
+      return el;
+    }
+
+    function addThinking() {
+      const el = document.createElement('div');
+      el.className = 'msg-ai';
+      el.innerHTML = `<div class="ai-mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg></div><div class="ai-body"><div class="thinking"><span class="ps-dot"></span> Asking ${escapeHtml(friendlyProvider(effectiveProvider()))}…</div></div>`;
+      thread.appendChild(el);
+      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      return el;
+    }
+
+    function numeric(v) { return typeof v === 'number' && isFinite(v); }
+
+    // Lightweight auto-chart: 1 text + 1 numeric → horizontal bars (sky only).
+    function autoChart(columns, rows) {
+      if (!rows || rows.length < 2 || rows.length > 25) return '';
+      const numCols = columns.filter(c => rows.every(r => r[c] == null || numeric(r[c])) && rows.some(r => numeric(r[c])));
+      const textCols = columns.filter(c => !numCols.includes(c));
+      if (textCols.length !== 1 || numCols.length !== 1) return '';
+      const label = textCols[0], val = numCols[0];
+      const vals = rows.map(r => numeric(r[val]) ? r[val] : 0);
+      const max = Math.max(...vals, 0) || 1;
+      const bars = rows.map(r => {
+        const v = numeric(r[val]) ? r[val] : 0;
+        const pct = Math.max(2, (v / max) * 100);
+        const disp = Math.abs(v) >= 1000 ? v.toLocaleString() : (Math.round(v * 100) / 100);
+        return `<div class="bar-row"><span class="bl" title="${escapeHtml(r[label])}">${escapeHtml(r[label])}</span><span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span><span class="bv">${escapeHtml(disp)}</span></div>`;
+      }).join('');
+      return `<div class="chart-wrap">${bars}</div>`;
+    }
+
+    function resultsTable(columns, rows, rowCount, chartHtml) {
+      if (!columns.length) return '';
+      const shown = rows.slice(0, 50);
+      const head = columns.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+      const body = shown.map(r => `<tr>${columns.map(c => {
+        let v = r[c];
+        if (numeric(v)) v = Math.abs(v) >= 1000 ? v.toLocaleString() : (Math.round(v*1e6)/1e6);
+        return `<td>${escapeHtml(v)}</td>`;
+      }).join('')}</tr>`).join('');
+      const cap = rowCount > shown.length ? `<div class="res-cap">Showing ${shown.length} of ${rowCount.toLocaleString()} rows</div>` : `<div class="res-cap">${rowCount.toLocaleString()} row${rowCount===1?'':'s'}</div>`;
+      const chart = chartHtml ? `<div class="chart-section"><div class="chart-label">Visualization</div>${chartHtml}</div>` : '';
+      return `<div class="res-wrap"><div class="res-scroll"><table class="res"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${cap}${chart}</div>`;
+    }
+
+    // Human-readable label for a scrubber redaction kind.
+    const REDACT_LABEL = {
+      email: 'email address', phone: 'phone number', ssn: 'SSN', mrn: 'medical record number',
+      credit_card: 'credit card number', ip: 'IP address', date_of_birth: 'date of birth',
+      name: 'name', address: 'address', zip: 'ZIP code', npi: 'provider NPI',
+    };
+    function redactSummary(redactions) {
+      return (redactions || []).map(r => {
+        const label = REDACT_LABEL[r.kind] || String(r.kind).replace(/_/g, ' ');
+        const n = r.count || 1;
+        return `${n} ${label}${n > 1 ? 's' : ''}`;
+      }).join(', ');
+    }
+
+    function renderResponse(el, d, requested) {
+      const provider = d.provider || 'none';
+      let html = '';
+      // PII notice — the scrubber removed sensitive tokens BEFORE the query was sent.
+      if (d.scrubbed && (d.redactions || []).length) {
+        const toCloud = provider === 'gemini';
+        html += `<div class="pii-note">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div><b>PII detected and removed</b> — ${escapeHtml(redactSummary(d.redactions))} ${(d.redactions.reduce((a,r)=>a+(r.count||1),0) > 1 ? 'were' : 'was')} scrubbed from your question before ${toCloud ? 'it reached the cloud model' : 'the query ran'}. Please avoid entering personal information.</div>
+        </div>`;
+      }
+      // Cloud→local fallback notice
+      if (requested === 'gemini' && provider === 'ollama') {
+        html += `<div class="fallback-note">⚡→🔒 Cloud (${escapeHtml(MODELS.gemModel)}) was unavailable (usually a rate limit), so this ran locally on ${escapeHtml(MODELS.ollModel)} — slower, but your data still never left this machine.</div>`;
+      }
+      html += `<div class="ai-narr">${escapeHtml(d.narration || 'Here are the results:')}</div>`;
+      if (d.sql) {
+        html += `<div class="ai-sql"><div class="ai-sql-label">Generated SQL</div><code>${highlightSql(d.sql)}</code></div>`;
+      }
+      if (d.error && (!d.rows || !d.rows.length)) {
+        html += `<div class="ai-error"><b>Could not run this query.</b><br>${escapeHtml(d.error)}<br><span style="font-size:12px;">Try rephrasing — name columns as they appear in the schema.</span></div>`;
+      } else if (d.columns && d.columns.length) {
+        const chartHtml = autoChart(d.columns, (d.rows || []).slice(0, 25));
+        html += resultsTable(d.columns, d.rows || [], d.row_count || (d.rows||[]).length, chartHtml);
+      }
+      let prov = `SQL via ${escapeHtml(friendlyProvider(provider))} · ${d.latency_s ?? 0}s · executed on DuckDB`;
+      if (d.scrubbed && (d.redactions || []).length) {
+        const n = d.redactions.reduce((a, r) => a + (r.count || 1), 0);
+        prov += ` · <span class="redact">🔒 ${n} item${n > 1 ? 's' : ''} redacted before send</span>`;
+      }
+      html += `<div class="prov-line">${prov}</div>`;
+      el.querySelector('.ai-body').innerHTML = html;
+      el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    async function ask(question) {
+      question = (question || '').trim();
+      if (!question || BUSY) return;
+      const table = currentTable();
+      if (!table) return;
+      BUSY = true;
+      const sendBtn = $('send-btn'); sendBtn.disabled = true; $('send-icon').classList.add('icon-spin');
+      $('composer-input').value = '';
+      $('clear-wrap').style.display = 'block';
+      addUser(question);
+      const aiEl = addThinking();
+      const requested = effectiveProvider();
+      try {
+        const res = await fetch('/api/mart/ask', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, table }),
+        });
+        const d = await res.json();
+        if (d.error && !d.sql && !d.narration) {
+          aiEl.querySelector('.ai-body').innerHTML = `<div class="ai-error">${escapeHtml(d.message || 'The query engine hit an error. Try rephrasing.')}</div>`;
+        } else {
+          renderResponse(aiEl, d, requested);
+        }
+      } catch (e) {
+        aiEl.querySelector('.ai-body').innerHTML = `<div class="ai-error">Could not reach the query engine.</div>`;
+      }
+      BUSY = false; sendBtn.disabled = false; $('send-icon').classList.remove('icon-spin');
+    }
+
+    // composer
+    const input = $('composer-input');
+    input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(160, input.scrollHeight) + 'px'; });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(input.value); }
+    });
+    $('send-btn').addEventListener('click', () => ask(input.value));
+    $('clear-btn').addEventListener('click', () => {
+      thread.innerHTML = `<div class="empty-thread" id="empty-thread"><div class="et-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg></div><div class="et-title">Ask anything about this table</div><div class="et-sub">Pick a starter question above, or type your own below.</div></div>`;
+      $('clear-wrap').style.display = 'none';
+    });
+
+    loadModels();
+    loadTables();
+  </script>
+</body>
+</html>

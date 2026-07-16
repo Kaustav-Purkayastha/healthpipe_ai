@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL console — HealthPipe AI</title>
+  <link rel="icon" type="image/svg+xml" href="/static/healthpipe_logo.svg">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <style>
+    @keyframes icon-spin { to { transform: rotate(360deg); } }
+    .btn svg.icon-spin { animation: icon-spin 0.9s linear infinite; }
+
+    .intro-card .lead { font-size: 14px; line-height: 1.7; color: var(--hp-text-secondary); max-width: 88ch; }
+    .intro-card .lead b { color: var(--hp-text-primary); }
+    .readonly-badge {
+      margin-top: 14px; padding: 12px 16px; border-radius: 14px; display: inline-flex; align-items: center; gap: 10px;
+      background: var(--hp-primary-soft); border: 1px solid var(--hp-primary-100);
+      font-size: 12.5px; color: var(--hp-primary-dark);
+    }
+    .readonly-badge svg { flex-shrink: 0; }
+
+    /* layout: editor 70 / schema 30 */
+    .sql-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+    @media (max-width: 1024px) { .sql-layout { grid-template-columns: 1fr; } }
+
+    .editor-label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--hp-text-secondary); margin-bottom: 10px; }
+    .sql-editor {
+      width: 100%; min-height: 190px; resize: vertical; box-sizing: border-box;
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 13.5px; line-height: 1.6;
+      border: 1px solid var(--hp-border); border-radius: 16px; padding: 16px 18px;
+      color: var(--hp-text-primary); background: var(--hp-surface); tab-size: 2;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .sql-editor:focus { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px rgba(5,150,105,0.12); }
+    .sql-editor::placeholder { color: var(--hp-text-secondary); }
+
+    .editor-actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+    .run-hint { font-size: 12.5px; color: var(--hp-text-secondary); }
+    .kbd { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11px; background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 6px; padding: 2px 6px; color: var(--hp-text-secondary); }
+
+    .history { margin-top: 18px; }
+    .history .h-label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--hp-text-secondary); margin-bottom: 10px; }
+    .h-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .h-chip {
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; cursor: pointer;
+      background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 999px;
+      padding: 6px 13px; color: var(--hp-text-secondary); transition: all 0.15s ease; max-width: 320px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .h-chip:hover { border-color: var(--hp-secondary); color: var(--hp-secondary-dark); background: var(--hp-secondary-100); }
+
+    /* schema reference side */
+    .ref-card .ref-label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--hp-text-secondary); margin-bottom: 10px; }
+    .ref-select {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 13px; border: 1px solid var(--hp-border);
+      border-radius: 12px; font-family: inherit; background: var(--hp-surface); color: var(--hp-text-primary); cursor: pointer;
+    }
+    .ref-select:focus { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px rgba(5,150,105,0.12); }
+    .ref-cols { margin-top: 14px; display: flex; flex-direction: column; }
+    .ref-col {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+      padding: 9px 0; border-bottom: 1px solid var(--hp-border); font-size: 12.5px; cursor: pointer;
+    }
+    .ref-col:last-child { border-bottom: none; }
+    .ref-col:hover code { color: var(--hp-primary); }
+    .ref-col code { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; color: var(--hp-primary-dark); font-weight: 700; overflow-wrap: anywhere; }
+    .ref-col .rc-type { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 10.5px; color: var(--hp-text-secondary); white-space: nowrap; }
+    .ref-hint { font-size: 11px; color: var(--hp-text-secondary); margin-top: 12px; line-height: 1.5; }
+    .ref-rows { font-size: 11.5px; color: var(--hp-text-secondary); margin-top: 4px; }
+
+    /* results */
+    .results-card { display: none; }
+    .res-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+    .res-meta { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--hp-primary-dark); }
+    .res-meta .rm-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hp-primary); }
+    .res-scroll { overflow-x: auto; border: 1px solid var(--hp-border); border-radius: 14px; }
+    table.res { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+    table.res th {
+      background: var(--hp-bg); text-align: left; padding: 11px 14px; font-weight: 700; color: var(--hp-text-secondary);
+      white-space: nowrap; border-bottom: 1px solid var(--hp-border);
+    }
+    table.res td { padding: 9px 14px; border-bottom: 1px solid var(--hp-border); color: var(--hp-text-primary); white-space: nowrap; }
+    table.res tr:last-child td { border-bottom: none; }
+    table.res tr:nth-child(even) td { background: var(--hp-bg); }
+
+    .sql-reject, .sql-error {
+      display: none; margin-top: 16px; font-size: 13px; border-radius: 14px; padding: 14px 16px; line-height: 1.55;
+    }
+    .sql-reject { color: #92400E; background: #FEF3C7; border: 1px solid #FDE68A; }
+    .sql-reject b, .sql-error b { display: block; margin-bottom: 4px; }
+    .sql-error { color: #991B1B; background: #FEE2E2; border: 1px solid #FECACA; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12.5px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="mark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 5 4-12 2 7h6"/></svg>
+        </div>
+        <div>
+          <div class="name">HealthPipe&nbsp;AI</div>
+          <div class="sb-credit">Built by <strong>Kaustav Purkayastha</strong></div>
+        </div>
+      </div>
+      <a class="navlink" href="/pages/dashboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Dashboard</a>
+      <a class="navlink" href="/pages/onboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h10v8H4z"/><path d="M18 12h2v8h-2z"/></svg>Onboard data</a>
+      <a class="navlink" href="/pages/mart.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>US States Health Mart</a>
+      <a class="navlink" href="/pages/chat.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Ask the data</a>
+      <a class="navlink active" href="/pages/sql.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>SQL console</a>
+      <div class="sb-spacer"></div>
+      <div class="model-panel" id="model-panel" style="display:none;">
+        <div class="mp-label">AI models</div>
+        <div class="mp-list" id="mp-list"></div>
+        <div class="mp-modes" id="mp-modes">
+          <button class="mp-mode" data-mode="hybrid"><span class="mp-mode-title">Cloud + on-device</span></button>
+          <button class="mp-mode" data-mode="local_only"><span class="mp-mode-title">On-device only</span></button>
+        </div>
+        <div class="mp-help" id="mp-help"></div>
+      </div>
+      <div class="verified">
+        <div class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div><b>Private by design</b><br><span>Data stays on this device</span></div>
+      </div>
+      <a class="logout" href="#logout">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Log out</a>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="page-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          </div>
+          <div class="title-wrap">
+            <h1>SQL console</h1>
+            <p class="sub">Read-only SQL against your local DuckDB — the manual safety net</p>
+          </div>
+        </div>
+        <div class="right">
+          <button class="avatar-btn" aria-label="Signed in as KP" title="Signed in">
+            <span class="avatar">KP</span>
+            <span class="avatar-status" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- INTRO -->
+        <section class="card intro-card">
+          <div class="eyebrow">What this is</div>
+          <div class="sec-title">Write SQL by hand</div>
+          <p class="lead">
+            Query any onboarded table or built mart directly. This console is <b>read-only by design</b> —
+            every query is validated as a single <b>SELECT</b> before it runs, so mutations are rejected, not executed.
+            Queries run on your local DuckDB; nothing leaves this device.
+          </p>
+          <div class="readonly-badge">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+            SELECT-only · validated before execution · runs on this machine
+          </div>
+        </section>
+
+        <!-- EDITOR + SCHEMA -->
+        <div class="sql-layout">
+          <section class="card">
+            <div class="editor-label">SQL query</div>
+            <textarea class="sql-editor" id="sql-editor" spellcheck="false" placeholder="SELECT * FROM reporting_state_health LIMIT 10"></textarea>
+            <div class="editor-actions">
+              <button class="btn btn-primary" id="run-btn">
+                <svg id="run-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+                <span class="btn-label">Run query</span>
+              </button>
+              <span class="run-hint"><span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> to run</span>
+            </div>
+
+            <div class="history" id="history" style="display:none;">
+              <div class="h-label">Recent queries</div>
+              <div class="h-chips" id="h-chips"></div>
+            </div>
+
+            <div class="sql-reject" id="sql-reject"></div>
+            <div class="sql-error" id="sql-error"></div>
+          </section>
+
+          <section class="card ref-card">
+            <div class="ref-label">Schema reference</div>
+            <select class="ref-select" id="ref-select"></select>
+            <div class="ref-rows" id="ref-rows"></div>
+            <div class="ref-cols" id="ref-cols"></div>
+            <div class="ref-hint">Click a column to insert its name into the editor.</div>
+          </section>
+        </div>
+
+        <!-- RESULTS -->
+        <section class="card results-card" id="results-card">
+          <div class="res-head">
+            <div class="res-meta" id="res-meta"><span class="rm-dot"></span><span id="res-meta-text"></span></div>
+            <button class="btn btn-ghost" id="export-btn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export CSV
+            </button>
+          </div>
+          <div class="res-scroll" id="res-scroll"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function numeric(v) { return typeof v === 'number' && isFinite(v); }
+
+    let TABLES = [];
+    let LAST = { columns: [], rows: [] };
+    let HISTORY = [];
+    const MAX_HISTORY = 8;
+
+    async function loadTables() {
+      const sel = $('ref-select');
+      try {
+        const d = await (await fetch('/api/query/tables')).json();
+        TABLES = d.tables || [];
+      } catch (e) { TABLES = []; }
+      if (!TABLES.length) {
+        sel.innerHTML = '<option value="">No tables</option>';
+        $('ref-cols').innerHTML = '<div class="ref-hint">No tables yet — onboard a dataset first.</div>';
+        return;
+      }
+      const marts = TABLES.filter(t => t.kind === 'mart');
+      const sources = TABLES.filter(t => t.kind === 'source');
+      let html = '';
+      if (marts.length) html += `<optgroup label="Built marts">${marts.map(t => `<option value="${escapeHtml(t.table)}">${escapeHtml(t.table)}</option>`).join('')}</optgroup>`;
+      if (sources.length) html += `<optgroup label="Onboarded datasets">${sources.map(t => `<option value="${escapeHtml(t.table)}">${escapeHtml(t.table)}</option>`).join('')}</optgroup>`;
+      sel.innerHTML = html;
+      sel.addEventListener('change', () => loadSchema(sel.value));
+      // Seed the editor with a sensible default query on first load.
+      if (!$('sql-editor').value.trim() && TABLES[0]) {
+        $('sql-editor').value = `SELECT * FROM ${TABLES[0].table} LIMIT 10`;
+      }
+      loadSchema(sel.value);
+    }
+
+    async function loadSchema(table) {
+      const wrap = $('ref-cols');
+      wrap.innerHTML = '<div class="ref-hint">Loading…</div>';
+      try {
+        const d = await (await fetch('/api/query/schema?table=' + encodeURIComponent(table))).json();
+        const cols = d.columns || [];
+        $('ref-rows').textContent = `${cols.length} columns · ${(d.n_rows||0).toLocaleString()} rows`;
+        wrap.innerHTML = cols.map(c => `
+          <div class="ref-col" data-col="${escapeHtml(c.name)}" title="${escapeHtml(c.description || c.type)}">
+            <code>${escapeHtml(c.name)}</code><span class="rc-type">${escapeHtml(c.type)}</span>
+          </div>`).join('');
+        wrap.querySelectorAll('.ref-col').forEach(el => {
+          el.addEventListener('click', () => insertAtCursor(el.dataset.col));
+        });
+      } catch (e) {
+        wrap.innerHTML = '<div class="ref-hint">Could not load the schema.</div>';
+      }
+    }
+
+    function insertAtCursor(text) {
+      const ta = $('sql-editor');
+      const s = ta.selectionStart, e = ta.selectionEnd;
+      ta.value = ta.value.slice(0, s) + text + ta.value.slice(e);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = s + text.length;
+    }
+
+    function pushHistory(sql) {
+      HISTORY = HISTORY.filter(q => q !== sql);
+      HISTORY.unshift(sql);
+      HISTORY = HISTORY.slice(0, MAX_HISTORY);
+      renderHistory();
+    }
+    function renderHistory() {
+      const wrap = $('history'), chips = $('h-chips');
+      if (!HISTORY.length) { wrap.style.display = 'none'; return; }
+      wrap.style.display = 'block';
+      chips.innerHTML = HISTORY.map(q => `<button class="h-chip" title="${escapeHtml(q)}">${escapeHtml(q.length > 50 ? q.slice(0,47) + '…' : q)}</button>`).join('');
+      [...chips.querySelectorAll('.h-chip')].forEach((btn, i) => {
+        btn.addEventListener('click', () => { $('sql-editor').value = HISTORY[i]; $('sql-editor').focus(); });
+      });
+    }
+
+    function renderResults(d) {
+      LAST = { columns: d.columns || [], rows: d.rows || [] };
+      const cols = d.columns || [], rows = d.rows || [];
+      const shown = rows.slice(0, 200);
+      const head = cols.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+      const body = shown.map(r => `<tr>${cols.map(c => {
+        let v = r[c];
+        if (numeric(v)) v = Math.abs(v) >= 1000 ? v.toLocaleString() : (Math.round(v*1e6)/1e6);
+        return `<td>${escapeHtml(v)}</td>`;
+      }).join('')}</tr>`).join('');
+      $('res-scroll').innerHTML = `<table class="res"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      const extra = rows.length > shown.length ? ` (showing first ${shown.length})` : '';
+      $('res-meta-text').textContent = `${d.row_count.toLocaleString()} row${d.row_count===1?'':'s'}${extra} · ${d.elapsed_ms} ms`;
+      $('results-card').style.display = 'block';
+      $('results-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    async function runQuery() {
+      const sql = $('sql-editor').value.trim();
+      $('sql-reject').style.display = 'none'; $('sql-error').style.display = 'none';
+      if (!sql) return;
+      const btn = $('run-btn'); btn.disabled = true; $('run-icon').classList.add('icon-spin');
+      try {
+        const res = await fetch('/api/sql/run', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql }),
+        });
+        const d = await res.json();
+        if (d.ok) {
+          renderResults(d);
+          pushHistory(d.sql || sql);
+        } else if (d.rejected) {
+          $('sql-reject').innerHTML = `<b>Query rejected — the console is read-only.</b>${escapeHtml(d.reason || '')}`;
+          $('sql-reject').style.display = 'block';
+        } else {
+          $('sql-error').innerHTML = `<b>Query failed</b>${escapeHtml(d.reason || 'Unknown error')}`;
+          $('sql-error').style.display = 'block';
+        }
+      } catch (e) {
+        $('sql-error').innerHTML = `<b>Query failed</b>Could not reach the query engine.`;
+        $('sql-error').style.display = 'block';
+      }
+      btn.disabled = false; $('run-icon').classList.remove('icon-spin');
+    }
+
+    function exportCsv() {
+      if (!LAST.columns.length) return;
+      const esc = v => {
+        if (v == null) return '';
+        const s = String(v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const lines = [LAST.columns.map(esc).join(',')];
+      LAST.rows.forEach(r => lines.push(LAST.columns.map(c => esc(r[c])).join(',')));
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'query_result.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    $('run-btn').addEventListener('click', runQuery);
+    $('export-btn').addEventListener('click', exportCsv);
+    $('sql-editor').addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runQuery(); }
+    });
+
+    loadTables();
+  </script>
+</body>
+</html>

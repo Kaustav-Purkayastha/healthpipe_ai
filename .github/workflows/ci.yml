@@ -1,0 +1,40 @@
+name: CI
+
+# Run on every push and PR targeting main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: pytest (offline) · py${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 = the enterprise floor (oldest we claim to support);
+        # 3.14 = the dev machine. Passing BOTH is the compatibility claim
+        # made in the README.
+        python-version: ["3.11", "3.14"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Core tier only — the on-demand connector/BigQuery tiers are never
+      # required to boot the app or run the suite. Connector tests use lazy
+      # imports and skip cleanly when their drivers are absent.
+      - name: Install core dependencies
+        run: pip install -r requirements-core.txt
+
+      # The suite is offline by design; -m "not network" excludes any
+      # live-API tests so CI never depends on external services.
+      - name: Run offline test suite
+        run: pytest -q -m "not network"

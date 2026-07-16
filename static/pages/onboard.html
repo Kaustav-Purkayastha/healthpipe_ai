@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Onboard data — HealthPipe AI</title>
+  <link rel="icon" type="image/svg+xml" href="/static/healthpipe_logo.svg">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <style>
+    @keyframes icon-spin { to { transform: rotate(360deg); } }
+    .btn svg.icon-spin { animation: icon-spin 0.9s linear infinite; }
+
+    .intro-card .theme-note {
+      margin-top: 14px; padding: 14px 16px; border-radius: 14px;
+      background: var(--hp-primary-soft); border: 1px solid var(--hp-primary-100);
+      font-size: 13.5px; line-height: 1.6; color: var(--hp-primary-dark); max-width: 84ch;
+    }
+
+    /* ---------- Lane picker ---------- */
+    .lane-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+    @media (max-width: 900px) { .lane-picker { grid-template-columns: 1fr; } }
+    .lane-card {
+      border: 1px solid var(--hp-border); border-radius: 20px; padding: 18px 20px; background: var(--hp-bg);
+      cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      text-align: left;
+    }
+    .lane-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+    .lane-card.active { border-color: var(--hp-primary); background: var(--hp-primary-soft); }
+    .lane-card .lc-icon {
+      width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      background: var(--hp-surface); color: var(--hp-primary); border: 1px solid var(--hp-border); margin-bottom: 12px;
+    }
+    .lane-card.active .lc-icon { background: var(--hp-primary); color: #fff; border-color: var(--hp-primary); }
+    .lane-card .lc-title { font-family: var(--font-family-display); font-size: 15px; font-weight: 700; color: var(--hp-text-primary); }
+    .lane-card .lc-sub { font-size: 12.5px; color: var(--hp-text-secondary); margin-top: 4px; line-height: 1.5; }
+
+    /* ---------- Forms ---------- */
+    .lane { display: none; }
+    .lane.active { display: block; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 18px; margin-top: 8px; }
+    @media (max-width: 720px) { .field-grid { grid-template-columns: 1fr; } }
+    .fld { display: flex; flex-direction: column; gap: 6px; }
+    .fld.full { grid-column: 1 / -1; }
+    .fld label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--hp-text-secondary); }
+    .fld input, .fld select, .fld textarea {
+      width: 100%; padding: 10px 12px; font-size: 14px; font-family: inherit;
+      border: 1px solid var(--hp-border); border-radius: 12px; background: var(--hp-surface); color: var(--hp-text-primary);
+    }
+    .fld input:focus, .fld select:focus, .fld textarea:focus { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px var(--hp-primary-soft); }
+    .fld textarea { min-height: 78px; resize: vertical; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12.5px; }
+
+    /* ---------- Load options (quality gate + AI enrichment) ---------- */
+    .run-options {
+      margin-top: 18px; background: var(--hp-surface);
+      border: 1px solid var(--hp-border); border-radius: 18px; overflow: hidden;
+    }
+    .run-options-head {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--hp-text-secondary); padding: 13px 18px 11px; background: var(--hp-bg);
+      border-bottom: 1px solid var(--hp-border);
+    }
+    .opt-row {
+      display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 14px;
+      padding: 15px 18px; border-bottom: 1px solid var(--hp-border);
+    }
+    .opt-row:last-child { border-bottom: none; }
+    .opt-icon {
+      width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+      background: var(--hp-primary-soft); color: var(--hp-primary); border: 1px solid var(--hp-primary-100);
+    }
+    .opt-text { min-width: 0; }
+    .opt-label { font-size: 13.5px; font-weight: 600; color: var(--hp-text-primary); }
+    .opt-hint { font-size: 11.5px; line-height: 1.45; color: var(--hp-text-secondary); margin-top: 2px; }
+    .opt-select {
+      padding: 8px 12px; font-size: 13px; border: 1px solid var(--hp-border); border-radius: 10px;
+      font-family: inherit; background: var(--hp-surface); color: var(--hp-text-primary);
+      cursor: pointer; min-width: 170px; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .opt-select:hover { border-color: var(--hp-text-secondary); }
+    .opt-select:focus { outline: none; border-color: var(--hp-primary); box-shadow: 0 0 0 3px rgba(5,150,105,0.12); }
+    /* legacy toggle (kept for any other .switch use) */
+    .switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; inset: 0; background: var(--hp-border); border-radius: 999px; transition: 0.2s; cursor: pointer; }
+    .slider::before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+    .switch input:checked + .slider { background: var(--hp-primary); }
+    .switch input:checked + .slider::before { transform: translateX(18px); }
+    @media (max-width: 640px) {
+      .opt-row { grid-template-columns: 38px 1fr; row-gap: 10px; }
+      .opt-select, .ai-auto-pill { grid-column: 2; justify-self: start; }
+    }
+
+    .run-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+    .run-hint { font-size: 12.5px; color: var(--hp-text-secondary); }
+
+    /* ---------- Dropzone (files) ---------- */
+    .dropzone {
+      margin-top: 12px; border: 2px dashed var(--hp-border); border-radius: 24px; background: var(--hp-bg);
+      padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.2s ease;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--hp-primary); background: var(--hp-primary-soft); }
+    .dropzone .dz-icon {
+      width: 52px; height: 52px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center;
+      background: var(--hp-primary-soft); color: var(--hp-primary); border-radius: 999px;
+    }
+    .dropzone .dz-title { font-family: var(--font-family-display); font-size: 15px; font-weight: 700; color: var(--hp-text-primary); }
+    .dropzone .dz-sub { font-size: 12.5px; color: var(--hp-text-secondary); margin-top: 4px; }
+    .file-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .file-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 9px 14px; background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 12px; font-size: 13px;
+    }
+    .file-row .fn { font-weight: 600; color: var(--hp-text-primary); }
+    .file-row .fx { color: var(--hp-danger); cursor: pointer; font-weight: 700; }
+
+    /* ---------- DB tables ---------- */
+    .db-tables { margin-top: 14px; }
+    .radio-row { display: flex; gap: 16px; margin: 8px 0; font-size: 13px; }
+    .radio-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .driver-note {
+      margin-top: 12px; padding: 14px 16px; border-radius: 14px; font-size: 13px; line-height: 1.5;
+      background: #FEF3C7; border: 1px solid #FDE68A; color: #92400E;
+    }
+    .driver-note .dn-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .driver-note .dn-text { min-width: 0; }
+    .driver-note .dn-text b { color: #78350F; }
+    .driver-note .dn-pkg { margin-top: 6px; }
+    .driver-note code {
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px;
+      background: rgba(120,53,15,0.10); padding: 2px 8px; border-radius: 6px; color: #78350F; overflow-wrap: anywhere;
+    }
+    .driver-note .dn-install { flex-shrink: 0; }
+    .driver-note .dn-log {
+      margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(120,53,15,0.07);
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11px; line-height: 1.5;
+      color: #78350F; white-space: pre-wrap; max-height: 180px; overflow-y: auto;
+    }
+    .driver-note .dn-log.err { background: #FEE2E2; color: #991B1B; }
+    @media (max-width: 640px) { .driver-note .dn-row { flex-direction: column; align-items: stretch; } }
+
+    /* ---------- Progress + result ---------- */
+    .run-progress { display: none; margin-top: 16px; }
+    .run-progress.show { display: block; }
+    .stage-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .stage {
+      display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--hp-text-secondary);
+      padding: 8px 12px; border-radius: 12px; background: var(--hp-bg); border: 1px solid var(--hp-border);
+    }
+    .stage .st-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--hp-border); flex-shrink: 0; }
+    .stage.active { color: var(--hp-text-primary); border-color: var(--hp-primary-100); background: var(--hp-primary-soft); }
+    .stage.active .st-dot { background: var(--hp-primary); animation: pulse 1s infinite; }
+    .stage.done .st-dot { background: var(--hp-primary); }
+    @keyframes pulse { 50% { opacity: 0.4; } }
+
+    .prof-status {
+      display: flex; align-items: center; gap: 9px; margin-top: 12px;
+      font-size: 13px; font-weight: 600; color: var(--hp-secondary-dark);
+      background: var(--hp-secondary-100); border: 1px solid #BAE6FD;
+      border-radius: 12px; padding: 10px 14px;
+    }
+    .prof-status .ps-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--hp-secondary); flex-shrink: 0; }
+    .prof-status.profiling .ps-dot { animation: ps-pulse 1s infinite; }
+    @keyframes ps-pulse { 50% { opacity: 0.35; } }
+    .prof-status.done { color: var(--hp-primary-dark); background: var(--hp-primary-soft); border-color: var(--hp-primary-100); }
+    .prof-status.done .ps-dot { background: var(--hp-primary); animation: none; }
+    .prof-status .ps-hint { font-weight: 500; opacity: 0.85; }
+
+    .ai-auto-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; white-space: nowrap;
+      background: var(--hp-primary-soft); color: var(--hp-primary-dark);
+      border: 1px solid var(--hp-primary-100); border-radius: 999px; padding: 6px 12px;
+    }
+    .ai-auto-pill::before {
+      content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--hp-primary);
+    }
+
+    .ai-enrich {
+      margin-top: 14px; padding: 16px 18px;
+      background: var(--hp-primary-soft); border: 1px solid var(--hp-primary-100); border-radius: 16px;
+    }
+    .ai-enrich .ai-brief { font-size: 13.5px; line-height: 1.6; color: #334155; margin-bottom: 12px; }
+    .ai-enrich .ai-brief p { margin: 0 0 9px; }
+    .ai-enrich .ai-brief p:last-child { margin-bottom: 0; }
+    .ai-enrich .ai-brief b { color: var(--hp-text-primary); }
+    .ai-cols { display: flex; flex-direction: column; }
+    .ai-col {
+      display: grid; grid-template-columns: 160px 1fr; gap: 12px; align-items: baseline;
+      padding: 8px 0; border-bottom: 1px solid var(--hp-primary-100); font-size: 12.5px;
+    }
+    .ai-col:last-child { border-bottom: none; }
+    .ai-col code {
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px;
+      color: var(--hp-primary-dark); font-weight: 700; overflow-wrap: anywhere;
+    }
+    .ai-col span { color: var(--hp-text-secondary); line-height: 1.5; }
+    .ai-enrich .ai-by { margin-top: 10px; font-size: 11px; color: var(--hp-text-tertiary); }
+    @media (max-width: 640px) { .ai-col { grid-template-columns: 1fr; gap: 2px; } }
+
+    /* ---------- Data-quality scorecard (per-source, from the pipeline) ---------- */
+    .dq {
+      margin-top: 4px; padding: 16px 18px;
+      background: var(--hp-surface); border: 1px solid var(--hp-border); border-radius: 16px;
+    }
+    .dq-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .dq-grade {
+      font-family: 'General Sans', -apple-system, 'Inter', sans-serif;
+      font-weight: 700; font-size: 13px; padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+    }
+    .dq-grade.A { background: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .dq-grade.B { background: var(--hp-primary-soft); color: var(--hp-primary-dark); }
+    .dq-grade.C { background: var(--hp-secondary-100); color: var(--hp-secondary-dark); }
+    .dq-grade.D { background: #FEF3C7; color: #92400E; }
+    .dq-grade.F { background: #FEE2E2; color: #991B1B; }
+    .dq-score {
+      font-family: 'General Sans', -apple-system, 'Inter', sans-serif;
+      font-weight: 700; font-size: 20px; color: var(--hp-text-primary); letter-spacing: -0.01em;
+    }
+    .dq-score small { font-size: 12px; font-weight: 500; color: var(--hp-text-tertiary); }
+    .dq-summary { font-size: 12.5px; color: var(--hp-text-secondary); margin-left: auto; }
+    .dq-summary b { color: var(--hp-text-primary); font-weight: 700; }
+    .dq-dims { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 14px; }
+    .dq-dim { border: 1px solid var(--hp-border); border-radius: 12px; padding: 10px 12px; background: var(--hp-bg); }
+    .dq-dim.warn { border-color: #FDE68A; background: #FFFBEB; }
+    .dq-dim .dqd-label { font-size: 11px; font-weight: 700; color: var(--hp-text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+    .dq-dim .dqd-val {
+      display: flex; align-items: center; gap: 6px; margin-top: 5px;
+      font-family: 'General Sans', -apple-system, 'Inter', sans-serif; font-weight: 700; font-size: 14px; color: var(--hp-text-primary);
+    }
+    .dq-dim .dqd-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--hp-primary); }
+    .dq-dim.warn .dqd-dot { background: #D97706; }
+    .dq-checks { margin-top: 14px; border-top: 1px solid var(--hp-border); padding-top: 12px; }
+    .dq-checks-title { font-size: 11px; font-weight: 700; color: var(--hp-text-secondary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 8px; }
+    .dq-check { display: grid; grid-template-columns: 14px 1fr; gap: 9px; align-items: start; padding: 5px 0; font-size: 12.5px; color: var(--hp-text-secondary); line-height: 1.45; }
+    .dq-check .dqc-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .dq-check.pass .dqc-dot { background: var(--hp-primary); }
+    .dq-check.fail .dqc-dot { background: var(--hp-danger); }
+    .dq-check.fail { color: var(--hp-text-primary); }
+    .dq-flags { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .dq-flag { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; padding: 9px 12px; border-radius: 12px; }
+    .dq-flag.pii { background: var(--hp-secondary-100); color: var(--hp-secondary-dark); }
+    .dq-flag.issue { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+    .dq-flag.info { background: var(--hp-bg); color: var(--hp-text-secondary); border: 1px solid var(--hp-border); }
+    .dq-flag b { font-weight: 700; }
+    .dq-flag code { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11px; font-weight: 700; }
+    .dq-why { opacity: 0.8; font-style: italic; }
+    .dq-toggle { margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--hp-secondary); background: none; border: none; cursor: pointer; padding: 0; }
+    .dq-toggle:hover { text-decoration: underline; }
+    .dq-eyebrow { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--hp-text-tertiary); margin-bottom: 10px; }
+    .dq-eyebrow svg { color: var(--hp-primary); }
+    @media (max-width: 640px) { .dq-summary { margin-left: 0; width: 100%; } }
+
+    #result-card { display: none; }
+    .result-block { border-top: 1px solid var(--hp-border); padding-top: 16px; margin-top: 16px; }
+    .result-block:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    .col-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .col-chip {
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px;
+      background: var(--hp-bg); border: 1px solid var(--hp-border); border-radius: 999px; padding: 3px 10px; color: var(--hp-text-secondary);
+    }
+    .col-chip.state { background: var(--hp-primary-soft); color: var(--hp-primary-dark); border-color: var(--hp-primary-100); }
+
+    /* ---------- Onboarded datasets (sortable list) ---------- */
+    .ds-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .ds-sort-wrap { font-size: 12px; color: var(--hp-text-secondary); display: inline-flex; align-items: center; gap: 8px; }
+    .ds-sort-wrap select { padding: 6px 10px; font-size: 13px; border: 1px solid var(--hp-border); border-radius: 10px; font-family: inherit; }
+    .ds-list { display: flex; flex-direction: column; margin-top: 14px; border: 1px solid var(--hp-border); border-radius: 16px; overflow: hidden; }
+    .ds-item { border-bottom: 1px solid var(--hp-border); background: var(--hp-surface); }
+    .ds-item:last-child { border-bottom: none; }
+    .ds-item.open { background: var(--hp-bg); }
+    .ds-row {
+      display: grid; grid-template-columns: 16px 1.6fr 1.2fr auto auto auto 30px; align-items: center; gap: 14px;
+      padding: 13px 18px; cursor: pointer; transition: background 0.15s ease;
+    }
+    .ds-row:hover { background: var(--hp-bg); }
+    .ds-row:focus-visible { outline: 2px solid var(--hp-primary); outline-offset: -2px; }
+    .ds-caret { color: var(--hp-text-tertiary); flex-shrink: 0; transition: transform 0.18s ease; }
+    .ds-item.open .ds-caret { transform: rotate(90deg); color: var(--hp-primary); }
+    .ds-row .ds-name { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 13px; font-weight: 700; color: var(--hp-text-primary); overflow-wrap: anywhere; }
+    .ds-row .ds-meta { font-size: 12px; color: var(--hp-text-secondary); }
+    .ds-row .ds-date { font-size: 11.5px; color: var(--hp-text-tertiary); white-space: nowrap; text-align: right; }
+    .ds-pill { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; justify-self: start; }
+    .ds-pill.grade { background: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .ds-pill.rows { background: var(--hp-secondary-100); color: var(--hp-secondary-dark); }
+
+    /* Delete: a quiet row action, tucked in its own column, that only asserts
+       itself (full opacity + red) on row hover/focus so the row stays calm
+       until the user actually wants to act on it. */
+    .ds-delete-btn {
+      width: 30px; height: 30px; display: grid; place-items: center; justify-self: end;
+      background: none; border: none; padding: 0; color: var(--hp-text-tertiary); cursor: pointer;
+      border-radius: 999px; opacity: 0.45;
+      transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+    }
+    .ds-row:hover .ds-delete-btn,
+    .ds-delete-btn:focus-visible { opacity: 1; }
+    .ds-delete-btn:hover { background: #FEE2E2; color: var(--hp-danger); opacity: 1; }
+    .ds-delete-btn:focus-visible { outline: 2px solid var(--hp-danger); outline-offset: 2px; }
+    .ds-delete-btn:disabled { opacity: 0.25; pointer-events: none; }
+    @media (hover: none) { .ds-delete-btn { opacity: 0.7; } }
+
+    .ds-enrich { padding: 0 18px 16px 48px; }
+    .ds-enrich-loading {
+      display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--hp-text-secondary);
+      padding: 12px 0;
+    }
+    .ds-enrich-loading .ps-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--hp-secondary); }
+    .ds-enrich-loading .ps-dot.pulse { animation: ps-pulse 1s infinite; }
+    .ds-retry-btn {
+      background: none; border: 1px solid var(--hp-border); color: var(--hp-primary-dark);
+      font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; cursor: pointer; margin-left: 4px;
+    }
+    .ds-retry-btn:hover { background: var(--hp-primary-soft); }
+    .ds-enrich-error {
+      font-size: 13px; color: #92400E; background: #FEF3C7; border: 1px solid #FDE68A;
+      border-radius: 12px; padding: 12px 14px; margin: 6px 0 4px;
+    }
+    .ds-enrich-error .ds-enrich-errmsg {
+      font-size: 12px; color: #78350F; margin: 6px 0 10px;
+      font-family: 'SF Mono', Menlo, Consolas, monospace; word-break: break-word;
+    }
+    .ds-empty { font-size: 13px; color: var(--hp-text-secondary); margin-top: 12px; }
+    .grade-legend { margin-top: 6px; }
+    .grade-legend p { margin: 0 0 8px; font-size: 12px; line-height: 1.5; color: var(--hp-text-secondary); }
+    .grade-legend p b { color: var(--hp-text-primary); }
+    .gl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .grade-legend .gl { font-size: 10.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; line-height: 1.4; }
+    .grade-legend .gl.A { background: var(--hp-primary-100); color: var(--hp-primary-dark); }
+    .grade-legend .gl.B { background: var(--hp-primary-soft); color: var(--hp-primary-dark); }
+    .grade-legend .gl.C { background: var(--hp-secondary-100); color: var(--hp-secondary-dark); }
+    .grade-legend .gl.D { background: #FEF3C7; color: #92400E; }
+    .grade-legend .gl.F { background: #FEE2E2; color: #991B1B; }
+    @media (max-width: 720px) {
+      .ds-row { grid-template-columns: 16px 1fr auto auto 30px; }
+      .ds-row .ds-meta, .ds-row .ds-date { display: none; }
+      .ds-enrich { padding-left: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="mark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 5 4-12 2 7h6"/></svg>
+        </div>
+        <div>
+          <div class="name">HealthPipe&nbsp;AI</div>
+          <div class="sb-credit">Built by <strong>Kaustav Purkayastha</strong></div>
+        </div>
+      </div>
+      <a class="navlink" href="/pages/dashboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>Dashboard</a>
+      <a class="navlink active" href="/pages/onboard.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h10v8H4z"/><path d="M18 12h2v8h-2z"/></svg>Onboard data</a>
+      <a class="navlink" href="/pages/mart.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>US States Health Mart</a>
+      <a class="navlink" href="/pages/chat.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8M8 14h5"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Ask the data</a>
+      <a class="navlink" href="/pages/sql.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>SQL console</a>
+      <div class="sb-spacer"></div>
+      <div class="model-panel" id="model-panel" style="display:none;">
+        <div class="mp-label">AI models</div>
+        <div class="mp-list" id="mp-list"></div>
+        <div class="mp-modes" id="mp-modes">
+          <button class="mp-mode" data-mode="hybrid"><span class="mp-mode-title">Cloud + on-device</span></button>
+          <button class="mp-mode" data-mode="local_only"><span class="mp-mode-title">On-device only</span></button>
+        </div>
+        <div class="mp-help" id="mp-help"></div>
+      </div>
+      <div class="verified">
+        <div class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <div><b>Private by design</b><br><span>Data stays on this device</span></div>
+      </div>
+      <a class="logout" href="#logout">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Log out</a>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="page-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h10v8H4z"/><path d="M18 12h2v8h-2z"/></svg>
+          </div>
+          <div class="title-wrap">
+            <h1>Onboard data</h1>
+            <p class="sub">Add a source — profiled and stored on this device, ready to query</p>
+          </div>
+        </div>
+        <div class="right">
+          <label class="search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <input type="text" id="ds-search" placeholder="Search datasets…" autocomplete="off">
+          </label>
+          <div class="tb-divider"></div>
+          <button class="avatar-btn" aria-label="Signed in as KP" title="Signed in">
+            <span class="avatar">KP</span>
+            <span class="avatar-status" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- INTRO -->
+        <section class="card intro-card">
+          <div class="eyebrow">What this is</div>
+          <div class="sec-title">Onboard a data source</div>
+          <p class="sec-sub" style="max-width:84ch;">
+            Bring data in from a <b>public API</b>, an <b>uploaded file</b>, or a <b>database connection</b>.
+            Every source runs through the same local pipeline — <b>profile → transform → quality-check →
+            document → load</b> — landing as a queryable DuckDB table. Everything runs on this device.
+            Once onboarded, a dataset can be evaluated for use in the
+            <a href="/pages/mart.html" style="color:var(--hp-primary);font-weight:600;">US States Health Mart</a>.
+          </p>
+        </section>
+
+        <!-- STEP 1: choose a source lane -->
+        <section class="card">
+          <div class="eyebrow">Step 1 · Choose your source</div>
+          <div class="sec-title" style="font-size:18px;">Where is the data coming from?</div>
+          <p class="sec-sub">Pick where your data lives — its setup appears in Step 2 below.</p>
+          <div class="lane-picker" id="lane-picker">
+            <button class="lane-card" data-lane="api">
+              <div class="lc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/><circle cx="12" cy="12" r="10"/></svg></div>
+              <div class="lc-title">Public APIs</div>
+              <div class="lc-sub">WHO, CDC, CMS, Census and related open datasets.</div>
+            </button>
+            <button class="lane-card" data-lane="file">
+              <div class="lc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+              <div class="lc-title">File uploads</div>
+              <div class="lc-sub">CSV, TSV, JSON, Parquet or Excel — one or many.</div>
+            </button>
+            <button class="lane-card" data-lane="db">
+              <div class="lc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></div>
+              <div class="lc-title">Database connection</div>
+              <div class="lc-sub">SQLite, Postgres, MySQL, Snowflake, BigQuery and more.</div>
+            </button>
+          </div>
+        </section>
+
+        <!-- STEP 2: lane-specific config (revealed once a source is chosen above) -->
+        <section class="card" id="lane-panel" style="display:none;">
+          <div class="eyebrow" id="lane-eyebrow">Step 2 · Public APIs</div>
+          <div class="sec-title" style="font-size:18px;" id="lane-title">Pull from a public API</div>
+
+          <!-- API lane -->
+          <div class="lane" id="lane-api">
+            <div class="field-grid">
+              <div class="fld">
+                <label>Data source</label>
+                <select id="api-source"></select>
+              </div>
+              <div class="fld">
+                <label>Max records</label>
+                <input type="number" id="api-max" value="1000" min="10" max="1000000" step="100">
+              </div>
+            </div>
+            <div class="field-grid" id="api-params"></div>
+            <div class="field-grid">
+              <div class="fld full">
+                <label>Dataset name</label>
+                <input type="text" id="api-dataset" placeholder="dataset name">
+              </div>
+            </div>
+          </div>
+
+          <!-- File lane -->
+          <div class="lane" id="lane-file">
+            <input type="file" id="file-input" accept=".csv,.tsv,.json,.parquet,.xlsx" multiple style="display:none;">
+            <div class="dropzone" id="dropzone">
+              <div class="dz-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg></div>
+              <div class="dz-title">Drop files here, or click to browse</div>
+              <div class="dz-sub">CSV · TSV · JSON · Parquet · Excel — the first row is the header</div>
+            </div>
+            <div class="file-list" id="file-list"></div>
+          </div>
+
+          <!-- DB lane -->
+          <div class="lane" id="lane-db">
+            <div class="field-grid">
+              <div class="fld">
+                <label>Database engine</label>
+                <select id="db-engine"></select>
+              </div>
+            </div>
+            <div id="db-driver-note"></div>
+            <div class="field-grid" id="db-conn-fields"></div>
+            <div class="run-row">
+              <button class="btn btn-ghost" id="db-test-btn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+                <span class="btn-label">Test connection</span>
+              </button>
+              <span class="run-hint" id="db-test-hint"></span>
+            </div>
+            <div class="db-tables" id="db-tables" style="display:none;">
+              <div class="radio-row">
+                <label><input type="radio" name="db-mode" value="table" checked> Select a table</label>
+                <label><input type="radio" name="db-mode" value="query"> Custom SQL query</label>
+              </div>
+              <div class="field-grid">
+                <div class="fld" id="db-table-wrap">
+                  <label>Table</label>
+                  <select id="db-table"></select>
+                </div>
+                <div class="fld">
+                  <label>Max rows</label>
+                  <input type="number" id="db-max" value="100000" min="10" step="1000">
+                </div>
+                <div class="fld full" id="db-query-wrap" style="display:none;">
+                  <label>SQL query</label>
+                  <textarea id="db-query" placeholder="SELECT * FROM ..."></textarea>
+                </div>
+                <div class="fld full">
+                  <label>Dataset name</label>
+                  <input type="text" id="db-dataset" placeholder="dataset name">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Shared run options -->
+          <div class="run-options">
+            <div class="run-options-head">Load options</div>
+            <div class="opt-row">
+              <div class="opt-icon">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+              </div>
+              <div class="opt-text">
+                <div class="opt-label">Minimum quality to load</div>
+                <div class="opt-hint">Every dataset gets an automatic quality grade. Anything below this is still profiled, but not loaded into the database.</div>
+              </div>
+              <select id="opt-gate" class="opt-select">
+                <option value="">Load everything</option>
+                <option value="C">At least Fair (C)</option>
+                <option value="B">At least Good (B)</option>
+                <option value="A">Excellent only (A · strict)</option>
+              </select>
+            </div>
+            <div class="opt-row">
+              <div class="opt-icon">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1"/></svg>
+              </div>
+              <div class="opt-text">
+                <div class="opt-label">AI enrichment</div>
+                <div class="opt-hint">Runs automatically on-device after loading — a plain-English briefing and column descriptions. Open a dataset below to read it.</div>
+              </div>
+              <span class="ai-auto-pill">Automatic · on-device</span>
+            </div>
+          </div>
+
+          <div class="run-row">
+            <button class="btn btn-primary" id="run-btn">
+              <svg id="run-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+              <span class="btn-label">Run pipeline</span>
+            </button>
+            <span class="run-hint" id="run-hint"></span>
+          </div>
+
+          <!-- progress -->
+          <div class="run-progress" id="run-progress">
+            <div class="eyebrow">Running the pipeline</div>
+            <div class="stage-list" id="stage-list"></div>
+          </div>
+        </section>
+
+        <!-- RESULT -->
+        <section class="card" id="result-card">
+          <div class="eyebrow">Onboarded</div>
+          <div class="sec-title" style="font-size:18px;" id="result-title">Result</div>
+          <div id="result-body"></div>
+          <div style="margin-top:16px;">
+            <a class="btn btn-primary" href="/pages/mart.html">Use it in the mart &rarr;</a>
+          </div>
+        </section>
+
+        <!-- ONBOARDED DATASETS -->
+        <section class="card">
+          <div class="ds-head">
+            <div>
+              <div class="eyebrow">Your workspace</div>
+              <div class="sec-title" style="font-size:18px;">Onboarded datasets</div>
+            </div>
+            <label class="ds-sort-wrap">Sort
+              <select id="ds-sort">
+                <option value="newest">Newest first</option>
+                <option value="name">Name (A–Z)</option>
+                <option value="grade">Quality grade</option>
+                <option value="rows">Most rows</option>
+              </select>
+            </label>
+          </div>
+          <p class="sec-sub">Each one is loaded as its own queryable table. Open a row to read its on-device AI briefing.</p>
+          <div class="grade-legend">
+            <p><b>Quality grade</b> rates each dataset's completeness, validity, consistency &amp; PII checks.</p>
+            <div class="gl-row">
+              <span class="gl A">Excellent (A)</span>
+              <span class="gl B">Good (B)</span>
+              <span class="gl C">Fair (C)</span>
+              <span class="gl D">Weak (D)</span>
+              <span class="gl F">Poor (F)</span>
+            </div>
+          </div>
+          <div class="ds-list" id="ds-list"></div>
+          <div class="ds-empty" id="ds-empty" style="display:none;">Nothing onboarded yet — bring in a source above to get started.</div>
+          <button class="btn btn-ghost" id="ds-showall" style="display:none; margin-top:14px;"></button>
+        </section>
+
+        <div class="callout" style="margin-top:24px;">Every step runs on this device. Sources are profiled and stored locally; nothing is sent to the cloud.</div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+
+    const STATE_HINTS = new Set(['state','state_abbr','state_name','province','region']);
+    const STAGES = ['profile','transform','quality','document','load'];
+    const STAGE_LABEL = { profile:'Profiling', transform:'Transforming', quality:'Quality check', document:'Documenting', load:'Loading to DuckDB' };
+
+    let CATALOG = { api_sources: [], db_engines: [], file_formats: [] };
+    let lane = null;  // nothing chosen until the operator picks a source in Step 1
+    let chosenFiles = [];
+    let dbTables = [];
+
+    function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
+    const $ = id => document.getElementById(id);
+
+    // ---------- lane switching ----------
+    document.querySelectorAll('.lane-card').forEach(c => c.addEventListener('click', () => {
+      lane = c.dataset.lane;
+      document.querySelectorAll('.lane-card').forEach(x => x.classList.toggle('active', x === c));
+      document.querySelectorAll('.lane').forEach(l => l.classList.toggle('active', l.id === 'lane-' + lane));
+      const titles = {
+        api: ['Step 2 · Public APIs', 'Pull from a public API'],
+        file: ['Step 2 · File uploads', 'Upload one or more files'],
+        db: ['Step 2 · Database connection', 'Connect to a database'],
+      };
+      $('lane-eyebrow').textContent = titles[lane][0];
+      $('lane-title').textContent = titles[lane][1];
+      $('run-btn').style.display = (lane === 'db' && !dbTables.length) ? 'none' : 'inline-flex';
+      // Reveal Step 2 now that a source is chosen (progressive disclosure).
+      const panel = $('lane-panel');
+      const firstReveal = panel.style.display === 'none';
+      panel.style.display = 'block';
+      if (firstReveal) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }));
+
+    // ---------- options ----------
+    function opts() { return { min_grade: $('opt-gate').value || null }; }
+
+    // ---------- catalog ----------
+    async function loadCatalog() {
+      try {
+        const res = await fetch('/api/onboard/catalog');
+        CATALOG = await res.json();
+      } catch (e) { CATALOG = { api_sources: [], db_engines: [], file_formats: [] }; }
+      buildApiLane();
+      buildDbLane();
+    }
+
+    // ---------- API lane ----------
+    function buildApiLane() {
+      const sel = $('api-source');
+      sel.innerHTML = CATALOG.api_sources.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.label)}</option>`).join('');
+      sel.addEventListener('change', renderApiParams);
+      if (CATALOG.api_sources.length) renderApiParams();
+    }
+    function currentApiSource() { return CATALOG.api_sources.find(s => s.name === $('api-source').value); }
+    function renderApiParams() {
+      const src = currentApiSource();
+      $('api-dataset').value = src ? src.name : '';
+      const params = (src && src.params) || [];
+      $('api-params').innerHTML = params.map(p => {
+        if (p.type === 'select') {
+          const opts = (p.options || []).map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('');
+          return `<div class="fld"><label>${escapeHtml(p.label)}</label><select data-key="${escapeHtml(p.key)}">${opts}</select></div>`;
+        }
+        if (p.type === 'number') {
+          const attrs = [
+            p.min != null ? `min="${p.min}"` : '',
+            p.max != null ? `max="${p.max}"` : '',
+            p.step != null ? `step="${p.step}"` : 'step="1"',
+          ].join(' ');
+          return `<div class="fld"><label>${escapeHtml(p.label)}</label><input type="number" data-key="${escapeHtml(p.key)}" value="${escapeHtml(p.default || '')}" ${attrs}></div>`;
+        }
+        return `<div class="fld"><label>${escapeHtml(p.label)}</label><input type="text" data-key="${escapeHtml(p.key)}" value="${escapeHtml(p.default || '')}"></div>`;
+      }).join('');
+    }
+    function collectApiParams() {
+      const out = {};
+      $('api-params').querySelectorAll('[data-key]').forEach(el => { out[el.dataset.key] = el.value; });
+      return out;
+    }
+
+    // ---------- File lane ----------
+    const dropzone = $('dropzone'), fileInput = $('file-input');
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => addFiles(fileInput.files));
+    ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('dragover'); }));
+    dropzone.addEventListener('drop', e => { if (e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+    function addFiles(list) {
+      for (const f of list) if (!chosenFiles.some(x => x.name === f.name && x.size === f.size)) chosenFiles.push(f);
+      renderFileList();
+    }
+    function renderFileList() {
+      $('file-list').innerHTML = chosenFiles.map((f, i) => `
+        <div class="file-row">
+          <span class="fn">${escapeHtml(f.name)}</span>
+          <span>${(f.size/1024).toFixed(1)} KB <span class="fx" data-i="${i}">&times;</span></span>
+        </div>`).join('');
+      $('file-list').querySelectorAll('.fx').forEach(x => x.addEventListener('click', () => { chosenFiles.splice(+x.dataset.i, 1); renderFileList(); }));
+    }
+
+    // ---------- DB lane ----------
+    const DB_FIELDS = {
+      sqlite: [{k:'database',l:'SQLite file path',ph:'C:\\path\\to\\file.db'}],
+      snowflake: [{k:'account',l:'Account'},{k:'database',l:'Database'},{k:'schema',l:'Schema',v:'PUBLIC'},{k:'warehouse',l:'Warehouse'},{k:'user',l:'Username'},{k:'password',l:'Password',t:'password'}],
+      bigquery: [{k:'project_id',l:'GCP project ID'},{k:'credentials_path',l:'Service account JSON path (optional)'}],
+      databricks: [{k:'server_hostname',l:'Server hostname'},{k:'http_path',l:'HTTP path'},{k:'access_token',l:'Access token',t:'password'}],
+      _default: [{k:'host',l:'Host',v:'localhost'},{k:'port',l:'Port',t:'number'},{k:'database',l:'Database'},{k:'user',l:'Username'},{k:'password',l:'Password',t:'password'}],
+    };
+    function buildDbLane() {
+      const sel = $('db-engine');
+      sel.innerHTML = CATALOG.db_engines.map(e => `<option value="${e.id}">${escapeHtml(e.label)}${e.installed?'':' · driver not installed'}</option>`).join('');
+      sel.addEventListener('change', renderDbFields);
+      if (CATALOG.db_engines.length) renderDbFields();
+    }
+    function currentEngine() { return CATALOG.db_engines.find(e => e.id === $('db-engine').value); }
+    function renderDbFields() {
+      const eng = currentEngine();
+      dbTables = []; $('db-tables').style.display = 'none'; $('db-test-hint').textContent = '';
+      $('run-btn').style.display = 'none';
+      const note = $('db-driver-note');
+      if (eng && !eng.installed) {
+        note.innerHTML = `
+          <div class="driver-note" id="driver-note">
+            <div class="dn-row">
+              <div class="dn-text">The <b>${escapeHtml(eng.label)}</b> driver isn't installed yet. Install it on-device to connect — no manual reload needed.
+                <div class="dn-pkg"><code>pip install ${escapeHtml((eng.pip||[]).join(' '))}</code></div>
+              </div>
+              <button class="btn btn-primary dn-install" id="dn-install" data-engine="${escapeHtml(eng.id)}">
+                <svg id="dn-install-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                <span class="dn-install-label">Install driver</span>
+              </button>
+            </div>
+            <div class="dn-log" id="dn-log" style="display:none;"></div>
+          </div>`;
+        const btn = $('dn-install');
+        if (btn) btn.addEventListener('click', () => installDriver(eng.id));
+      } else { note.innerHTML = ''; }
+      const fields = DB_FIELDS[eng ? eng.id : '_default'] || DB_FIELDS._default;
+      const port = eng && eng.default_port;
+      $('db-conn-fields').innerHTML = fields.map(f => {
+        const val = f.k === 'port' && port ? port : (f.v || '');
+        return `<div class="fld ${f.k==='database'&&eng&&eng.id==='sqlite'?'full':''}"><label>${escapeHtml(f.l)}</label><input type="${f.t||'text'}" data-key="${f.k}" value="${escapeHtml(val)}" ${f.ph?`placeholder="${escapeHtml(f.ph)}"`:''} autocomplete="off"></div>`;
+      }).join('');
+    }
+    async function installDriver(engineId) {
+      const btn = $('dn-install'), lbl = btn.querySelector('.dn-install-label'), icon = $('dn-install-icon');
+      const log = $('dn-log');
+      btn.disabled = true; icon.classList.add('icon-spin'); lbl.textContent = 'Installing…';
+      log.style.display = 'block'; log.className = 'dn-log'; log.textContent = 'Running pip install on-device — this can take a minute…';
+      try {
+        const res = await fetch('/api/onboard/install_driver', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ engine_id: engineId }),
+        });
+        const d = await res.json();
+        if (d.ok && d.installed) {
+          // Mark installed in the catalog and re-render so the form unlocks.
+          const eng = CATALOG.db_engines.find(e => e.id === engineId);
+          if (eng) eng.installed = true;
+          buildDbLane();                 // refresh dropdown labels
+          $('db-engine').value = engineId;
+          renderDbFields();              // clears the note, shows connection fields
+          if (typeof showToast === 'function') showToast(d.message || 'Driver installed.', 'success');
+        } else {
+          icon.classList.remove('icon-spin'); lbl.textContent = 'Retry install'; btn.disabled = false;
+          log.className = 'dn-log err';
+          log.textContent = (d.message || 'Install failed.') + (d.log ? '\n\n' + d.log : '');
+        }
+      } catch (e) {
+        icon.classList.remove('icon-spin'); lbl.textContent = 'Retry install'; btn.disabled = false;
+        log.className = 'dn-log err'; log.textContent = 'Could not reach the server to install the driver.';
+      }
+    }
+
+    function collectConn() {
+      const c = {};
+      $('db-conn-fields').querySelectorAll('[data-key]').forEach(el => {
+        let v = el.value;
+        if (el.type === 'number' && v !== '') v = Number(v);
+        c[el.dataset.key] = v;
+      });
+      return c;
+    }
+    document.querySelectorAll('input[name="db-mode"]').forEach(r => r.addEventListener('change', () => {
+      const q = document.querySelector('input[name="db-mode"]:checked').value === 'query';
+      $('db-query-wrap').style.display = q ? 'block' : 'none';
+      $('db-table-wrap').style.display = q ? 'none' : 'flex';
+    }));
+    $('db-test-btn').addEventListener('click', async () => {
+      const eng = currentEngine();
+      if (!eng) return;
+      const btn = $('db-test-btn'), lbl = btn.querySelector('.btn-label'), orig = lbl.textContent;
+      btn.disabled = true; lbl.textContent = 'Connecting…';
+      $('db-test-hint').textContent = '';
+      try {
+        const res = await fetch('/api/onboard/db_test', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ engine_id: eng.id, conn: collectConn() }),
+        });
+        const d = await res.json();
+        if (d.error) {
+          $('db-test-hint').textContent = d.message || 'Connection failed.';
+          $('db-tables').style.display = 'none'; $('run-btn').style.display = 'none';
+        } else {
+          dbTables = d.tables || [];
+          $('db-table').innerHTML = dbTables.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+          $('db-dataset').value = dbTables[0] || 'db_extract';
+          $('db-tables').style.display = 'block';
+          $('run-btn').style.display = 'inline-flex';
+          $('db-test-hint').textContent = `Connected — ${dbTables.length} table${dbTables.length===1?'':'s'} found.`;
+          if (typeof showToast === 'function') showToast('Connected', 'success');
+        }
+      } catch (e) { $('db-test-hint').textContent = 'Could not reach the server.'; }
+      btn.disabled = false; lbl.textContent = orig;
+    });
+    $('db-table').addEventListener('change', () => { $('db-dataset').value = $('db-table').value; });
+
+    // ---------- progress ----------
+    let stageTimer = null;
+    function startProgress() {
+      const box = $('run-progress'); box.classList.add('show');
+      $('stage-list').innerHTML = STAGES.map(s => `<div class="stage" data-s="${s}"><span class="st-dot"></span>${STAGE_LABEL[s]}</div>`).join('');
+      let i = 0;
+      const mark = () => {
+        const els = $('stage-list').querySelectorAll('.stage');
+        els.forEach((el, k) => { el.classList.toggle('done', k < i); el.classList.toggle('active', k === i); });
+      };
+      mark();
+      stageTimer = setInterval(() => { i = Math.min(i + 1, STAGES.length - 1); mark(); }, 1200);
+    }
+    function stopProgress() {
+      if (stageTimer) clearInterval(stageTimer);
+      stageTimer = null;
+      $('stage-list').querySelectorAll('.stage').forEach(el => { el.classList.remove('active'); el.classList.add('done'); });
+      setTimeout(() => $('run-progress').classList.remove('show'), 500);
+    }
+
+    // ---------- run ----------
+    $('run-btn').addEventListener('click', doRun);
+    async function doRun() {
+      const btn = $('run-btn'), lbl = btn.querySelector('.btn-label'), orig = lbl.textContent;
+      btn.disabled = true; $('run-icon').classList.add('icon-spin'); lbl.textContent = 'Running…';
+      $('run-hint').textContent = ''; startProgress();
+      try {
+        let results = [];
+        if (lane === 'api') {
+          const src = currentApiSource();
+          const res = await fetch('/api/onboard/run_api', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ source: src.name, params: collectApiParams(),
+              dataset_name: $('api-dataset').value, max_records: Number($('api-max').value), ...opts() }),
+          });
+          results = [await res.json()];
+        } else if (lane === 'file') {
+          if (!chosenFiles.length) { $('run-hint').textContent = 'Choose at least one file.'; throw 'nofile'; }
+          const fd = new FormData();
+          chosenFiles.forEach(f => fd.append('file', f));
+          if (opts().min_grade) fd.append('min_grade', opts().min_grade);
+          const res = await fetch('/api/onboard/upload', { method:'POST', body: fd });
+          const d = await res.json();
+          results = d.results || [];
+        } else {
+          const eng = currentEngine();
+          const mode = document.querySelector('input[name="db-mode"]:checked').value;
+          const res = await fetch('/api/onboard/run_db', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ engine_id: eng.id, conn: collectConn(),
+              table: mode === 'table' ? $('db-table').value : null,
+              query: mode === 'query' ? $('db-query').value : null,
+              dataset_name: $('db-dataset').value, max_rows: Number($('db-max').value), ...opts() }),
+          });
+          results = [await res.json()];
+        }
+        renderResults(results);
+        loadDatasets();
+      } catch (e) {
+        if (e !== 'nofile') $('run-hint').textContent = 'Run failed — check the console / server.';
+      }
+      stopProgress();
+      btn.disabled = false; $('run-icon').classList.remove('icon-spin'); lbl.textContent = orig;
+    }
+
+    function renderResults(results) {
+      const ok = results.filter(r => r && r.ok);
+      const bad = results.filter(r => r && !r.ok);
+      const card = $('result-card');
+      $('result-title').textContent = ok.length === 1 ? `${ok[0].dataset_name} loaded`
+        : `${ok.length} dataset${ok.length===1?'':'s'} onboarded${bad.length?` · ${bad.length} failed`:''}`;
+      const blocks = [];
+      for (const r of ok) {
+        blocks.push(`<div class="result-block">
+          <div class="sec-sub" style="margin-bottom:10px;">Loaded as the DuckDB table <code>${escapeHtml(r.table_name)}</code>${r.gate_blocked?' — <b>blocked by quality gate</b> (not loaded)':''}.</div>
+          <div class="stats">
+            <div class="stat bento" title="${GRADE_TITLE}"><div class="circle"></div><div class="lbl">Quality grade</div><div class="val">${escapeHtml(gradeWord(r.grade))}</div><div class="foot2">${r.grade?'grade '+escapeHtml(r.grade):''}${r.score!=null?' · '+r.score+' score':''}</div></div>
+            <div class="stat"><div class="lbl">Rows in</div><div class="val">${r.rows_in}</div><div class="foot2">from source</div></div>
+            <div class="stat"><div class="lbl">Rows loaded</div><div class="val">${r.rows_out}</div><div class="foot2">after cleaning</div></div>
+            <div class="stat"><div class="lbl">Columns</div><div class="val">${(r.columns||[]).length}</div><div class="foot2">${r.duration_s!=null?r.duration_s+'s':'profiled'}</div></div>
+          </div>
+          <div class="col-chips">${(r.columns||[]).map(c => `<span class="col-chip${STATE_HINTS.has(String(c).toLowerCase())?' state':''}">${escapeHtml(c)}</span>`).join('')}</div>
+          ${r.table_name && !r.gate_blocked ? `<div class="prof-status profiling" data-table="${escapeHtml(r.table_name)}"><span class="ps-dot"></span><span class="ps-text">Analyzing on-device — quality profile + AI descriptions…</span></div>` : ''}
+        </div>`);
+      }
+      for (const r of bad) blocks.push(`<div class="result-block"><div class="ask-error" style="font-size:13px;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:11px 14px;"><b>${escapeHtml(r.dataset_name||'file')}</b>: ${escapeHtml(r.message||'failed')}</div></div>`);
+      $('result-body').innerHTML = blocks.join('') || '<p class="sec-sub">No datasets were onboarded.</p>';
+      card.style.display = 'block';
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (typeof showToast === 'function' && ok.length) showToast(`Onboarded ${ok.length} dataset${ok.length===1?'':'s'} — profiling on-device…`, 'success');
+      document.querySelectorAll('.prof-status[data-table]').forEach(el => pollProfile(el.dataset.table, el));
+    }
+
+    // Poll background profiling until it reports complete, then show the verdict.
+    function pollProfile(table, el) {
+      let tries = 0;
+      const txt = el.querySelector('.ps-text');
+      const tick = async () => {
+        tries++;
+        try {
+          const r = await fetch('/api/onboard/profile_status?table=' + encodeURIComponent(table));
+          const d = await r.json();
+          if (d.status === 'ready') {
+            el.className = 'prof-status done';
+            txt.innerHTML = (d.relevant
+              ? `✓ Analysis complete — usable in the mart (${d.n_metrics} metric${d.n_metrics===1?'':'s'} it can contribute).`
+              : `✓ Analysis complete — not state-level, so it won't be offered to the mart.`)
+              + ` <span class="ps-hint">Open it below to read the AI briefing.</span>`;
+            loadDatasets();  // refresh so the new dataset appears with its enrichment ready
+            return;
+          }
+          if (d.status === 'error') { el.className = 'prof-status'; txt.textContent = 'Analysis failed.'; return; }
+        } catch (e) { /* keep polling */ }
+        if (tries < 60) setTimeout(tick, 1500);
+        else txt.textContent = 'Still profiling in the background…';
+      };
+      tick();
+    }
+
+    // ---------- onboarded datasets (sortable, top 5 + show all) ----------
+    let ONBOARDED = [];
+    let DS_EXPANDED = false;
+    const DS_TOP = 5;
+    const GRADE_RANK = { A: 5, B: 4, C: 3, D: 2, F: 1, '': 0 };
+    // Plain-English meaning of the automatic quality grade (completeness, validity,
+    // consistency & PII checks). Shown on pills + in tooltips so A/B/C isn't cryptic.
+    const GRADE_LABEL = { A: 'Excellent', B: 'Good', C: 'Fair', D: 'Weak', F: 'Poor' };
+    function gradeWord(g) { return GRADE_LABEL[g] || 'Ungraded'; }
+    const GRADE_TITLE = 'Automatic data-quality grade from completeness, validity, consistency & PII checks — A Excellent · B Good · C Fair · D Weak · F Poor.';
+
+    async function loadDatasets() {
+      try {
+        const res = await fetch('/api/mart/onboarded');
+        const data = await res.json();
+        ONBOARDED = data.sources || [];
+      } catch (e) { ONBOARDED = []; }
+      renderDatasets();
+    }
+
+    let DS_QUERY = '';
+    function sortedDatasets() {
+      const mode = $('ds-sort').value;
+      let arr = [...ONBOARDED];
+      if (DS_QUERY) {
+        arr = arr.filter(s => `${s.table} ${s.dataset_name||''} ${s.source_name||''}`.toLowerCase().includes(DS_QUERY));
+      }
+      if (mode === 'name') arr.sort((a, b) => String(a.table).localeCompare(String(b.table)));
+      else if (mode === 'grade') arr.sort((a, b) => (GRADE_RANK[b.grade] || 0) - (GRADE_RANK[a.grade] || 0));
+      else if (mode === 'rows') arr.sort((a, b) => (b.rows || 0) - (a.rows || 0));
+      else arr.sort((a, b) => String(b.started_at || '').localeCompare(String(a.started_at || ''))); // newest
+      return arr;
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '';
+      try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch (e) { return ''; }
+    }
+
+    function renderDatasets() {
+      const list = $('ds-list'), empty = $('ds-empty'), showAll = $('ds-showall');
+      const all = sortedDatasets();
+      if (!all.length) {
+        list.innerHTML = '';
+        empty.textContent = DS_QUERY
+          ? `No datasets match “${DS_QUERY}”.`
+          : 'Nothing onboarded yet — bring in a source above to get started.';
+        empty.style.display = 'block'; showAll.style.display = 'none'; return;
+      }
+      empty.style.display = 'none';
+      const shown = (DS_EXPANDED || DS_QUERY) ? all : all.slice(0, DS_TOP);
+      list.innerHTML = shown.map(s => `
+        <div class="ds-item" data-table="${escapeHtml(s.table)}">
+          <div class="ds-row" role="button" tabindex="0">
+            <svg class="ds-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            <span class="ds-name">${escapeHtml(s.table)}</span>
+            <span class="ds-meta">${escapeHtml(s.dataset_name || '')}${s.source_name ? ' · ' + escapeHtml(s.source_name) : ''}</span>
+            <span class="ds-pill grade" title="${GRADE_TITLE}">${escapeHtml(gradeWord(s.grade))}${s.grade ? ' (' + escapeHtml(s.grade) + ')' : ''}</span>
+            <span class="ds-pill rows">${s.rows || 0} rows</span>
+            <span class="ds-date">${escapeHtml(fmtDate(s.started_at))}</span>
+            <button class="ds-delete-btn" data-table="${escapeHtml(s.table)}" title="Delete this dataset" aria-label="Delete">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+          </div>
+          <div class="ds-enrich" style="display:none;"></div>
+        </div>`).join('');
+      list.querySelectorAll('.ds-item').forEach(item => {
+        const row = item.querySelector('.ds-row');
+        const deleteBtn = item.querySelector('.ds-delete-btn');
+        row.addEventListener('click', () => toggleEnrich(item));
+        row.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleEnrich(item); }
+        });
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const table = deleteBtn.dataset.table;
+            if (await hpConfirm(`Delete "${table}" permanently? This cannot be undone.`, { title: 'Delete dataset' })) {
+              deleteDataset(table, deleteBtn);
+            }
+          });
+        }
+      });
+      if (!DS_QUERY && all.length > DS_TOP) {
+        showAll.style.display = 'inline-flex';
+        showAll.textContent = DS_EXPANDED ? 'Show less' : `Show all ${all.length}`;
+      } else {
+        showAll.style.display = 'none';
+      }
+    }
+
+    // Open a dataset to read its on-device analysis. Two independent parts,
+    // fetched + cached separately: (1) the data-quality profile (deterministic,
+    // fast, always available) and (2) the AI enrichment (briefing + column
+    // dictionary, generated on-device — kicked off + polled if it hasn't run).
+    const ENRICH_CACHE = {};
+    const QUALITY_CACHE = {};
+    const ENRICH_POLLING = new Set();
+    async function toggleEnrich(item) {
+      const panel = item.querySelector('.ds-enrich');
+      const open = item.classList.toggle('open');
+      if (!open) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+      const table = item.dataset.table;
+      panel.innerHTML = `<div class="ds-quality"></div><div class="ds-ai"></div>`;
+      loadQuality(table, panel.querySelector('.ds-quality'));
+      loadEnrichment(table, panel.querySelector('.ds-ai'), item);
+    }
+
+    // (1) Data-quality profile — the pipeline's scorecard for this source.
+    async function loadQuality(table, el) {
+      if (QUALITY_CACHE[table]) { el.innerHTML = QUALITY_CACHE[table]; return; }
+      el.innerHTML = `<div class="ds-enrich-loading"><span class="ps-dot pulse"></span> Loading data-quality profile…</div>`;
+      try {
+        const res = await fetch('/api/onboard/quality?table=' + encodeURIComponent(table));
+        const d = await res.json();
+        const html = renderQuality(d.quality);
+        el.innerHTML = html;
+        QUALITY_CACHE[table] = html;
+      } catch (e) {
+        el.innerHTML = '';
+      }
+    }
+
+    // (2) AI enrichment — lazily fetched, kicked off + polled if never run.
+    async function loadEnrichment(table, panel, item) {
+      if (ENRICH_CACHE[table]) { panel.innerHTML = ENRICH_CACHE[table]; return; }
+      panel.innerHTML = `<div class="ds-enrich-loading"><span class="ps-dot pulse"></span> Loading on-device AI enrichment…</div>`;
+      try {
+        const res = await fetch('/api/onboard/enrichment?table=' + encodeURIComponent(table));
+        const d = await res.json();
+        if (d.ready) {
+          panel.innerHTML = renderEnrich(d);
+          ENRICH_CACHE[table] = panel.innerHTML;
+          return;
+        }
+        if (d.status === 'error') {
+          showEnrichError(table, panel, item, d.error);
+          return;
+        }
+        if (d.status === 'absent') {
+          // Never enriched — kick it off now, then poll.
+          try {
+            await fetch('/api/onboard/enrich_now', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ table }),
+            });
+          } catch (e) { /* poll anyway — it may already be running */ }
+        }
+        // status 'running' (or just-triggered) → poll until done.
+        panel.innerHTML = `<div class="ds-enrich-loading"><span class="ps-dot pulse"></span> Generating AI enrichment on-device — usually 10–20s…</div>`;
+        pollEnrichment(table, panel, item);
+      } catch (e) {
+        showEnrichError(table, panel, item, 'Could not reach the server.');
+      }
+    }
+
+    // Render the data-quality scorecard (grade, per-dimension tallies, checks).
+    function renderQuality(q) {
+      if (!q) return '';
+      const grade = q.grade || '';
+      const score = (q.score != null) ? q.score : null;
+      const passed = q.checks_passed != null ? q.checks_passed : 0;
+      const total = q.total_checks != null ? q.total_checks : 0;
+      const gradeChip = grade
+        ? `<span class="dq-grade ${escapeHtml(grade)}" title="${GRADE_TITLE}">${escapeHtml(gradeWord(grade))} · ${escapeHtml(grade)}</span>` : '';
+      const scoreHtml = score != null
+        ? `<span class="dq-score">${score}<small> / 100</small></span>` : '';
+      const summary = total
+        ? `<span class="dq-summary"><b>${passed}/${total}</b> checks passed</span>` : '';
+      // Per-dimension tiles.
+      const dims = (q.dimensions || []).map(dm => {
+        const warn = dm.passed < dm.total;
+        return `<div class="dq-dim ${warn ? 'warn' : ''}">
+          <div class="dqd-label">${escapeHtml(dm.dimension)}</div>
+          <div class="dqd-val"><span class="dqd-dot"></span>${dm.passed}/${dm.total}</div>
+        </div>`;
+      }).join('');
+      const dimsHtml = dims ? `<div class="dq-dims">${dims}</div>` : '';
+      // Individual checks — failures always shown; passes behind a toggle.
+      const allChecks = [];
+      (q.dimensions || []).forEach(dm => (dm.checks || []).forEach(c => allChecks.push(c)));
+      const fails = allChecks.filter(c => !c.passed);
+      const passes = allChecks.filter(c => c.passed);
+      const checkRow = c => `<div class="dq-check ${c.passed ? 'pass' : 'fail'}"><span class="dqc-dot"></span><span>${escapeHtml(c.detail || c.check || '')}</span></div>`;
+      let checksHtml = '';
+      if (fails.length) {
+        checksHtml += `<div class="dq-checks"><div class="dq-checks-title">Needs attention (${fails.length})</div>${fails.map(checkRow).join('')}</div>`;
+      }
+      if (passes.length) {
+        const uid = 'dqp-' + Math.abs(hashStr(JSON.stringify(q).slice(0, 200))) + '-' + passes.length;
+        checksHtml += `<div class="dq-checks" ${fails.length ? '' : ''}>
+          <button class="dq-toggle" onclick="const b=document.getElementById('${uid}');b.style.display=b.style.display==='none'?'block':'none';this.textContent=b.style.display==='none'?'Show ${passes.length} passing checks':'Hide passing checks';">Show ${passes.length} passing checks</button>
+          <div id="${uid}" style="display:none;margin-top:8px;">${passes.map(checkRow).join('')}</div>
+        </div>`;
+      }
+      // Flags: PII columns + profiler quality issues.
+      const flags = [];
+      if ((q.pii_columns || []).length) {
+        const items = q.pii_columns.map(c => {
+          if (!c || typeof c !== 'object') return `<code>${escapeHtml(String(c))}</code>`;
+          const reason = String(c.reason || '');
+          let why = '';
+          if (reason.indexOf('name_hint') === 0) why = ' <span class="dq-why">(column name looks personal)</span>';
+          else if (reason.indexOf('value_pattern') === 0) why = ` <span class="dq-why">(values match a ${escapeHtml((reason.split(':')[1] || 'PII'))} pattern)</span>`;
+          return `<code>${escapeHtml(String(c.column || ''))}</code>${why}`;
+        }).join(', ');
+        flags.push(`<div class="dq-flag pii"><span>🔒</span><span><b>Possible PII flagged</b> by an automatic check in ${items}. This is a heuristic — worth a review, and can be a false positive. Column values never leave your machine either way.</span></div>`);
+      }
+      const ISSUE_LABEL = {
+        constant_column: 'Constant column',
+        high_null_rate: 'High share of missing values',
+        possible_id_column: 'Looks like an identifier',
+      };
+      (q.quality_issues || []).slice(0, 6).forEach(qi => {
+        if (typeof qi === 'string') {
+          flags.push(`<div class="dq-flag info"><span>ℹ</span><span>${escapeHtml(qi)}</span></div>`);
+          return;
+        }
+        const sev = String(qi.severity || 'warning');
+        const cls = (sev === 'info') ? 'info' : 'issue';
+        const icon = (sev === 'info') ? 'ℹ' : '⚠';
+        const col = qi.column ? `<code>${escapeHtml(String(qi.column))}</code> — ` : '';
+        const label = ISSUE_LABEL[qi.issue] || String(qi.issue || 'Issue').replace(/_/g, ' ');
+        const detail = qi.detail ? `: ${escapeHtml(String(qi.detail))}` : '';
+        flags.push(`<div class="dq-flag ${cls}"><span>${icon}</span><span>${col}<b>${escapeHtml(label)}</b>${detail}</span></div>`);
+      });
+      const flagsHtml = flags.length ? `<div class="dq-flags">${flags.join('')}</div>` : '';
+      return `<div class="dq">
+        <div class="dq-eyebrow">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          Data quality
+        </div>
+        <div class="dq-head">${gradeChip}${scoreHtml}${summary}</div>
+        ${dimsHtml}${flagsHtml}${checksHtml}
+      </div>`;
+    }
+
+    function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; } return h; }
+
+    function showEnrichError(table, panel, item, msg) {
+      panel.innerHTML = `<div class="ds-enrich-error">
+        <b>AI enrichment failed.</b>
+        <div class="ds-enrich-errmsg">${escapeHtml(msg || 'Unknown error')}</div>
+        <button class="ds-retry-btn" data-table="${escapeHtml(table)}">Try again</button>
+      </div>`;
+      const retry = panel.querySelector('.ds-retry-btn');
+      if (retry) retry.addEventListener('click', async () => {
+        ENRICH_CACHE[table] = null;
+        ENRICH_POLLING.delete(table);
+        panel.innerHTML = `<div class="ds-enrich-loading"><span class="ps-dot pulse"></span> Generating AI enrichment on-device — usually 10–20s…</div>`;
+        try {
+          await fetch('/api/onboard/enrich_now', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table }),
+          });
+        } catch (e) { /* poll anyway */ }
+        pollEnrichment(table, panel, item);
+      });
+    }
+
+    function pollEnrichment(table, panel, item) {
+      if (ENRICH_POLLING.has(table)) return;  // already polling this one
+      ENRICH_POLLING.add(table);
+      let tries = 0;
+      const tick = async () => {
+        tries++;
+        try {
+          const res = await fetch('/api/onboard/enrichment?table=' + encodeURIComponent(table));
+          const d = await res.json();
+          if (d.ready) {
+            ENRICH_POLLING.delete(table);
+            const html = renderEnrich(d);
+            ENRICH_CACHE[table] = html;
+            if (panel.isConnected) panel.innerHTML = html;
+            return;
+          }
+          if (d.status === 'error') {
+            ENRICH_POLLING.delete(table);
+            if (panel.isConnected) showEnrichError(table, panel, item, d.error);
+            return;
+          }
+        } catch (e) { /* keep polling */ }
+        if (tries < 40) {
+          setTimeout(tick, 1500);
+        } else {
+          ENRICH_POLLING.delete(table);
+          if (panel.isConnected) {
+            panel.innerHTML = `<div class="ds-enrich-loading">Still generating — this is taking longer than expected. <button class="ds-retry-btn" data-table="${escapeHtml(table)}">Check again</button></div>`;
+            const retry = panel.querySelector('.ds-retry-btn');
+            if (retry) retry.addEventListener('click', () => pollEnrichment(table, panel, item));
+          }
+        }
+      };
+      setTimeout(tick, 1500);
+    }
+
+    // Render the on-device briefing: drop the model's own repeated title line (the
+    // "AI enrichment" eyebrow already labels it) and turn **markdown** into real bold.
+    function formatBrief(text) {
+      let t = String(text || '').trim();
+      t = t.replace(/^\s*\*\*[^*\n]+\*\*[ \t]*(?:\n+|$)/, '');   // strip leading bold heading line
+      t = escapeHtml(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>'); // **bold** -> <b>
+      return t.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+    }
+
+    function renderEnrich(d) {
+      if (!d || !d.ready) {
+        return `<div class="ds-enrich-loading"><span class="ps-dot pulse"></span> AI enrichment is still running on-device — check back in a moment.</div>`;
+      }
+      const brief = d.briefing && d.briefing.text ? `<div class="ai-brief">${formatBrief(d.briefing.text)}</div>` : '';
+      const cols = (d.column_docs || []).length
+        ? `<div class="ai-cols">${d.column_docs.map(c => `<div class="ai-col"><code>${escapeHtml(c.name)}</code><span>${escapeHtml(c.description || '')}</span></div>`).join('')}</div>` : '';
+      if (!brief && !cols) return `<div class="ds-enrich-loading">No enrichment was produced for this dataset.</div>`;
+      const by = d.generated_by ? `<div class="ai-by">Written on-device by <b>${escapeHtml(d.generated_by)}</b></div>` : '';
+      return `<div class="ai-enrich" style="margin-top:12px;">
+        <div class="eyebrow" style="margin-bottom:8px;">AI enrichment</div>
+        ${brief}${cols}${by}
+      </div>`;
+    }
+
+    async function deleteDataset(table, btn) {
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/onboard/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table })
+        });
+        if (res.ok) {
+          if (typeof showToast === 'function') showToast(`Deleted "${table}".`, 'success');
+          await loadDatasets();
+        } else {
+          let msg = 'Could not delete';
+          try { const j = await res.json(); if (j && j.error) msg = j.error; } catch (e) { /* ignore */ }
+          if (typeof showToast === 'function') showToast(`Could not delete "${table}" (${msg}).`, 'error');
+          if (btn) btn.disabled = false;
+        }
+      } catch (e) {
+        console.error('deleteDataset failed', e);
+        if (typeof showToast === 'function') showToast(`Delete failed for "${table}".`, 'error');
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    $('ds-sort').addEventListener('change', renderDatasets);
+    $('ds-showall').addEventListener('click', () => { DS_EXPANDED = !DS_EXPANDED; renderDatasets(); });
+    const dsSearch = document.getElementById('ds-search');
+    if (dsSearch) {
+      dsSearch.addEventListener('input', (e) => {
+        DS_QUERY = (e.target.value || '').trim().toLowerCase();
+        renderDatasets();
+      });
+    }
+
+    loadCatalog();
+    loadDatasets();
+  </script>
+</body>
+</html>

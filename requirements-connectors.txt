@@ -1,0 +1,26 @@
+# requirements-connectors.txt
+# On-demand connector tier — installed by the driver manager or manually.
+# The core app (requirements-core.txt) does NOT require any of these.
+# Install individual connectors as needed; see core/driver_manager.py for
+# exact version pins and per-engine install instructions.
+#
+# Usage:
+#   pip install -r requirements-connectors.txt   # installs all connectors
+#   # OR install a single engine:
+#   from core.driver_manager import install_driver; install_driver("postgres")
+
+# --- Step 8: database engines ---
+pyodbc==5.3.0
+pg8000==1.31.5
+pymysql==1.2.0
+cryptography==49.0.0
+oracledb==4.0.1
+snowflake-connector-python==4.6.0
+snowflake-sqlalchemy==1.11.0
+sqlalchemy==2.0.51
+
+# --- Step 9: cloud connectors ---
+databricks-sql-connector==4.3.0
+boto3==1.43.45
+azure-storage-blob==12.30.0
+google-cloud-storage==3.12.1

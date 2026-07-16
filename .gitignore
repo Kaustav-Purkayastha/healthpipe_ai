@@ -1,0 +1,69 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.so
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Secrets & environment ---
+.env
+.env.*
+!.env.example
+
+# --- Project outputs — keep folder markers, ignore generated content ---
+outputs/**
+!outputs/**/
+!outputs/**/.gitkeep
+
+# --- Data cache (auto-generated on first mart build) ---
+data/cache/**
+!data/cache/
+!data/cache/.gitkeep
+
+# --- DuckDB artefacts ---
+*.duckdb
+*.duckdb.wal
+
+# --- Logs ---
+*.log
+
+# --- Test & type-check caches ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.tmp
+*.bak
+
+# --- Temp / scratch scripts (leading underscore convention) ---
+scripts/_*.py
+
+# --- Claude Code project config ---
+.claude/
+
+# --- Copilot instructions (local dev aid, not for GitHub) ---
+.github/copilot-instructions.md
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+
+# --- OS artefacts ---
+Thumbs.db
+desktop.ini
+.DS_Store
